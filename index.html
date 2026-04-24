@@ -1160,10 +1160,30 @@ function importData(e){
   const r=new FileReader();
   r.onload=ev=>{
     try{
-      const d=JSON.parse(ev.target.result);
-      if(d.cartao||d.pix||d.entrada){DB={...DB,...d};saveDB();renderPage(getActivePage());toast('Dados importados!');}
-      else toast('Arquivo inválido.','err');
-    }catch{toast('Erro ao importar.','err');}
+      const txt=ev.target.result.trim();
+      const d=JSON.parse(txt);
+      // Aceita qualquer JSON com ao menos uma das chaves esperadas
+      const temDados=Array.isArray(d.cartao)||Array.isArray(d.pix)||Array.isArray(d.entrada);
+      if(!temDados){toast('Arquivo não reconhecido.','err');return;}
+      // Garantir campos novos da v3
+      if(Array.isArray(d.cartao)){
+        d.cartao.forEach(r=>{
+          if(r.reembolsado===undefined)r.reembolsado=false;
+          if(!r.tipo)r.tipo='MEU';
+          if(!r.dataPagamento&&r.pago)r.dataPagamento=r.data||'';
+        });
+      }
+      if(!d.saldoInicial)d.saldoInicial={data:'2026-01-01',valor:0};
+      DB={...DB,...d};
+      saveDB();
+      document.getElementById('mesLabel').textContent=getMes();
+      renderPage(getActivePage());
+      const tot=(d.cartao?.length||0)+(d.pix?.length||0)+(d.entrada?.length||0);
+      toast('Importado! '+tot+' registros carregados.');
+    }catch(err){
+      console.error('Import error:',err);
+      toast('Erro: '+err.message,'err');
+    }
   };
   r.readAsText(f);e.target.value='';
 }
