@@ -208,6 +208,34 @@ select option{background:var(--s2)}
 .toast{position:fixed;bottom:18px;right:18px;background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:10px 15px;font-size:12px;display:none;align-items:center;gap:8px;z-index:9999;animation:su .2s ease}
 .toast.show{display:flex}
 @keyframes su{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes blink{0%,100%{box-shadow:0 0 0 0 rgba(231,69,96,.5)}70%{box-shadow:0 0 0 6px rgba(231,69,96,0)}}
+
+/* PROJEÇÃO */
+.proj-timeline{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.proj-row{display:grid;grid-template-columns:100px 1fr 1fr 1fr 1fr 1fr 120px;border-bottom:1px solid var(--border);transition:background .1s}
+.proj-row:last-child{border-bottom:none}
+.proj-row:hover{background:rgba(255,255,255,.02)}
+.proj-row.header{background:var(--s2)}
+.proj-row.atual{background:rgba(61,139,255,.05);border-left:3px solid var(--blue)}
+.proj-row.negativo{background:rgba(231,69,96,.04)}
+.proj-cell{padding:10px 14px;font-size:12px;display:flex;align-items:center}
+.proj-cell.header{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:var(--font)}
+.proj-cell.mes{font-family:var(--font);font-weight:700;font-size:12px}
+.proj-cell.saldo{font-family:var(--font);font-weight:700;font-size:13px}
+.proj-entry-list{display:flex;flex-direction:column;gap:4px;padding:10px 14px}
+.proj-entry{display:flex;gap:6px;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:6px 10px}
+.proj-entry input{background:transparent;border:none;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;width:100%}
+.proj-entry input::placeholder{color:var(--muted2)}
+.proj-saldo-acum{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:18px}
+.proj-bar-wrap{height:8px;background:var(--s3);border-radius:4px;overflow:hidden;margin:8px 0 4px}
+.proj-bar{height:100%;border-radius:4px;transition:width .5s}
+
+/* VENC MELHORADO */
+.vc-status-bar{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.vc-progress{flex:1;height:4px;background:var(--s3);border-radius:2px;overflow:hidden}
+.vc-prog-fill{height:100%;border-radius:2px;transition:width .4s}
+
 .toast.ok{border-color:var(--green);color:var(--green)}.toast.err{border-color:var(--red);color:var(--red)}
 
 /* MISC */
@@ -254,7 +282,10 @@ select option{background:var(--s2)}
     <div class="nav-item" onclick="goto('historico')"><span class="ni">📋</span><span class="nl">Histórico</span></div>
     <div class="nav-item" onclick="goto('resumo')"><span class="ni">📊</span><span class="nl">Resumo Mensal</span></div>
     <div class="nav-item" onclick="goto('categorias')"><span class="ni">🏷️</span><span class="nl">Categorias</span></div>
-    <div class="nav-item" onclick="goto('vencimentos')"><span class="ni">📅</span><span class="nl">Vencimentos</span></div>
+    <div class="nav-item" onclick="goto('vencimentos')" id="nav-venc"><span class="ni">📅</span><span class="nl">Vencimentos</span><span id="venc-badge" style="display:none;margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-family:var(--font);font-weight:700;padding:2px 6px;border-radius:10px;animation:pulse 1.5s infinite">!</span></div>
+    <div class="nav-item" onclick="goto('projecao')"><span class="ni">🔮</span><span class="nl">Projeção Futura</span></div>
+    <div class="nav-sec">Ajuda</div>
+    <div class="nav-item" onclick="goto('ajuda')"><span class="ni">❓</span><span class="nl">Como usar</span></div>
   </nav>
   <div class="sidebar-bot">
     <div class="nav-item" onclick="exportData()"><span class="ni">💾</span><span class="nl">Exportar JSON</span></div>
@@ -513,6 +544,247 @@ select option{background:var(--s2)}
   </div>
 </div></div>
 
+<!-- PROJEÇÃO FUTURA -->
+<div class="content fade" id="page-projecao">
+  <div class="sec-hdr">
+    <div class="sec-t"><span>🔮</span> Projeção de Saldo — JAN-26 a DEZ-27</div>
+    <button class="btn btn-ghost btn-sm" onclick="renderProjecao()">↻ Atualizar</button>
+  </div>
+
+  <!-- Entradas futuras programadas -->
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:18px">
+    <div style="font-family:var(--font);font-weight:700;font-size:13px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">
+      <span>📅 Entradas Programadas Futuras</span>
+      <button class="btn btn-green btn-sm" onclick="addEntradaProg()">+ Adicionar</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Salários, extras e entradas esperadas que ainda não foram lançadas. Usadas para projetar o saldo futuro.</div>
+    <div id="entradasProg"></div>
+  </div>
+
+  <!-- Saldo acumulado visual -->
+  <div class="proj-saldo-acum" id="projSaldoAcum"></div>
+
+  <!-- Tabela de projeção -->
+  <div class="proj-timeline" id="projTimeline"></div>
+</div>
+
+<!-- AJUDA -->
+<div class="content fade" id="page-ajuda" style="max-width:860px">
+
+  <div style="margin-bottom:28px">
+    <div style="font-family:var(--font);font-weight:800;font-size:22px;margin-bottom:6px">❓ Como usar o sistema</div>
+    <div style="color:var(--muted);font-size:13px">Guia completo de todas as telas e funcionalidades</div>
+  </div>
+
+  <!-- FECHAMENTO -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">📆</span>
+      <div>
+        <div class="help-title">Fechamento Mensal <span class="help-badge blue">Página Principal</span></div>
+        <div class="help-sub">Visão completa do mês selecionado — tudo num só lugar</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">🔀 <b>Navegar entre meses:</b> Use as setas <b>‹ ›</b> no topo para ir para meses anteriores ou futuros.</div>
+      <div class="help-section">🏦 <b>Saldo do banco:</b> O widget no topo mostra seu saldo real calculado automaticamente. Clique em <b>"Atualizar saldo inicial"</b> para informar quanto você tinha numa data específica — o sistema soma entradas e subtrai gastos a partir daí.</div>
+      <div class="help-section">📊 <b>Cards de resumo:</b> Mostram entradas, gastos MEU, gastos TERCEIRO, PIX/Débito, saldo do mês e total pendente.</div>
+      <div class="help-section">💳 <b>Cartões agrupados:</b> Cada bandeira aparece com suas parcelas do mês. Você pode:
+        <ul class="help-list">
+          <li>Clicar no <b>✓</b> de cada parcela para marcar individualmente</li>
+          <li>Clicar em <b>"✓ tudo"</b> no cabeçalho do cartão para pagar todas de uma vez</li>
+          <li>Clicar em <b>"↩"</b> para desfazer todos os pagamentos do cartão</li>
+          <li>Clicar no cabeçalho do cartão para expandir/recolher a lista</li>
+        </ul>
+      </div>
+      <div class="help-section">👥 <b>Widget de Terceiros:</b> Se houver parcelas do tipo TERCEIRO no mês, aparece um painel roxo mostrando o que você pagou mas ainda vai receber de volta. Clique em <b>"Registrar recebimento"</b> quando o dinheiro chegar.</div>
+      <div class="help-section">⚠️ <b>Falta pagar:</b> Tabela no final listando todas as parcelas ainda não marcadas como pagas, com aviso se o saldo do banco é suficiente para cobrir.</div>
+    </div>
+  </div>
+
+  <!-- A RECEBER -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">👥</span>
+      <div>
+        <div class="help-title">A Receber — Terceiros <span class="help-badge purple">Controle de reembolsos</span></div>
+        <div class="help-sub">Rastreia tudo que você pagou por outra pessoa e ainda vai receber de volta</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">💜 <b>Como funciona:</b> Quando você lança uma compra no cartão e seleciona <b>👥 TERCEIRO</b>, o sistema entende que você pagou mas vai receber de volta. Isso <b>não</b> conta como gasto seu no saldo.</div>
+      <div class="help-section">📋 <b>Na tela A Receber</b> você vê:
+        <ul class="help-list">
+          <li><b>A Receber:</b> total pendente de todos os terceiros</li>
+          <li><b>Já Recebi:</b> histórico do que já foi reembolsado</li>
+          <li><b>Total Antecipado:</b> soma histórica de tudo que você já pagou por terceiros</li>
+        </ul>
+      </div>
+      <div class="help-section">✅ <b>Registrar recebimento:</b> Clique em <b>"💜 Registrar"</b> na linha da parcela, informe a data e o valor recebido. O sistema automaticamente lança isso como uma entrada no mês correspondente.</div>
+      <div class="help-section">↩ <b>Desfazer:</b> Se registrou por engano, clique novamente no botão (que fica verde "✅ Recebido") para desmarcar.</div>
+    </div>
+  </div>
+
+  <!-- LANÇAR -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">➕</span>
+      <div>
+        <div class="help-title">Lançar <span class="help-badge red">3 tipos de lançamento</span></div>
+        <div class="help-sub">Como registrar compras, PIX e entradas</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">💳 <b>+ Cartão:</b> Para compras parceladas ou à vista no cartão.
+        <ul class="help-list">
+          <li>Preencha: Descrição, Categoria, Cartão, Valor Total, Nº de Parcelas, Mês da 1ª parcela</li>
+          <li>Escolha <b>MEU</b> se é seu gasto, <b>TERCEIRO</b> se você pagou por outra pessoa</li>
+          <li>O preview mostra o valor de cada parcela e o período (ex: ABR-26 → JUN-26)</li>
+          <li>O sistema cria automaticamente uma linha por parcela</li>
+        </ul>
+      </div>
+      <div class="help-section">📱 <b>+ PIX / Débito:</b> Para pagamentos diretos do banco (PIX, débito, TED, transferência).
+        <ul class="help-list">
+          <li>Preencha: Descrição, Categoria, Tipo (PIX/Débito/TED), Valor, Mês de referência, Data</li>
+          <li>Esses gastos são descontados diretamente do saldo do banco</li>
+        </ul>
+      </div>
+      <div class="help-section">🏦 <b>+ Entrada:</b> Para registrar salário, extra, rendimento ou qualquer dinheiro recebido.
+        <ul class="help-list">
+          <li>Tipos disponíveis: Salário, Extra, Transferência, Rendimento, Reembolso Terceiro, Outros</li>
+          <li>O valor soma ao saldo do banco automaticamente</li>
+          <li>Reembolsos de terceiros são lançados aqui automaticamente quando você registra o recebimento</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">📋</span>
+      <div>
+        <div class="help-title">Histórico <span class="help-badge">Todos os lançamentos</span></div>
+        <div class="help-sub">Lista completa e filtrável de tudo que foi lançado</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">🔍 <b>Filtros:</b> Filtre por mês de referência e por tipo (Cartão, PIX/Débito ou Entrada). Pode combinar os dois filtros.</div>
+      <div class="help-section">✓ <b>Marcar como pago:</b> Parcelas de cartão têm o checkbox ✓ na última coluna — clique para marcar/desmarcar diretamente pelo histórico.</div>
+      <div class="help-section">🗑️ <b>Apagar:</b> Clique no ícone de lixeira para remover qualquer lançamento. Cuidado: a ação é confirmada por uma caixa de diálogo mas não tem como desfazer.</div>
+    </div>
+  </div>
+
+  <!-- RESUMO MENSAL -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">📊</span>
+      <div>
+        <div class="help-title">Resumo Mensal <span class="help-badge">Visão geral por mês</span></div>
+        <div class="help-sub">Tabela comparativa de todos os meses lado a lado</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">📅 <b>O que você vê:</b> Uma linha por mês com o gasto em cada cartão separado, total de terceiros, PIX/Débito, Entradas e o Saldo do mês (Entradas − seus gastos).</div>
+      <div class="help-section">🔗 <b>Atalho:</b> Clique no nome do mês (em azul) para ir direto para o Fechamento daquele mês.</div>
+      <div class="help-section">📈 <b>Saldo do mês:</b> Verde = você ganhou mais do que gastou. Vermelho = gastou mais do que entrou. Os gastos de TERCEIRO não entram no cálculo do seu saldo.</div>
+    </div>
+  </div>
+
+  <!-- CATEGORIAS -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">🏷️</span>
+      <div>
+        <div class="help-title">Categorias <span class="help-badge">Para onde vai seu dinheiro</span></div>
+        <div class="help-sub">Análise de gastos por tipo — cartão + PIX juntos</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">📊 <b>Gráfico de barras:</b> Mostra cada categoria com barra proporcional ao valor gasto. As categorias disponíveis são: Alimentação, Transporte, Moradia, Saúde, Educação, Lazer, Vestuário, Assinaturas, Compras e Outros.</div>
+      <div class="help-section">🔍 <b>Filtro por mês:</b> Selecione um mês específico ou deixe "Todos os meses" para ver o histórico completo acumulado.</div>
+      <div class="help-section">💡 <b>Dica:</b> Sempre preencha a categoria ao lançar para ter análises precisas aqui.</div>
+    </div>
+  </div>
+
+  <!-- VENCIMENTOS -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">📅</span>
+      <div>
+        <div class="help-title">Vencimentos <span class="help-badge yellow">Alertas por cartão</span></div>
+        <div class="help-sub">Controle dos dias de vencimento e alertas de urgência</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">🔴🟡🟢 <b>Status de cada cartão:</b>
+        <ul class="help-list">
+          <li><b>🔴 URGENTE</b> — vence em 3 dias ou menos</li>
+          <li><b>🟡 ATENÇÃO</b> — vence em até 7 dias</li>
+          <li><b>🟢 OK</b> — vence em mais de 7 dias</li>
+          <li><b>✅ LIMPO</b> — sem parcelas pendentes</li>
+        </ul>
+      </div>
+      <div class="help-section">⚙️ <b>Configurar dias:</b> Clique em <b>"⚙️ Configurar"</b> para definir o dia de vencimento de cada cartão. Por padrão: Nubank dia 5, Itaú dia 5, Inter dia 25, C6 dia 25, etc.</div>
+      <div class="help-section">💰 <b>Valor pendente:</b> Mostra o total de parcelas ainda não pagas de cada cartão (de todos os meses, não só o atual).</div>
+    </div>
+  </div>
+
+  <!-- SALDO BANCO -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">🏦</span>
+      <div>
+        <div class="help-title">Saldo do Banco <span class="help-badge green">Como configurar</span></div>
+        <div class="help-sub">Como o sistema calcula seu saldo real</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">📌 <b>Saldo inicial:</b> Clique em <b>"⚙️ Atualizar saldo inicial"</b> no widget do banco (tela de Fechamento). Informe uma data e o valor que você tinha no banco naquela data.</div>
+      <div class="help-section">🔢 <b>Cálculo automático:</b> A partir da data de referência, o sistema soma todas as entradas lançadas e subtrai cartões pagos + PIX/Débito. O resultado é o seu saldo atual estimado.</div>
+      <div class="help-section">💜 <b>A Receber:</b> O valor que terceiros ainda te devem aparece separado. O sistema mostra dois saldos: o real (o que você tem agora) e o projetado (se todos os terceiros pagarem).</div>
+      <div class="help-section">💡 <b>Dica:</b> Atualize o saldo inicial toda vez que conferir com o banco real para manter a precisão.</div>
+    </div>
+  </div>
+
+  <!-- BACKUP -->
+  <div class="help-card">
+    <div class="help-hdr">
+      <span class="help-icon">💾</span>
+      <div>
+        <div class="help-title">Exportar / Importar JSON <span class="help-badge">Backup dos dados</span></div>
+        <div class="help-sub">Como salvar e transferir seus dados entre dispositivos</div>
+      </div>
+    </div>
+    <div class="help-body">
+      <div class="help-section">💾 <b>Exportar JSON:</b> Clique em <b>"Exportar JSON"</b> no menu lateral para baixar um arquivo de backup com todos os seus dados. O nome inclui o mês atual.</div>
+      <div class="help-section">📂 <b>Importar JSON:</b> Clique em <b>"Importar JSON"</b> para carregar um backup salvo anteriormente. Os dados são mesclados com o que já existe.</div>
+      <div class="help-section">📱 <b>Usar no celular:</b> O sistema salva os dados no navegador de cada dispositivo separadamente. Para ter os mesmos dados no celular e no computador, exporte do computador e importe no celular.</div>
+      <div class="help-section">⚠️ <b>Atenção:</b> Se você limpar os dados do navegador (cookies/cache), os dados do sistema são apagados. Faça backup regularmente pelo "Exportar JSON".</div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+.help-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;overflow:hidden}
+.help-hdr{display:flex;align-items:flex-start;gap:14px;padding:18px 20px;background:var(--s2);border-bottom:1px solid var(--border)}
+.help-icon{font-size:24px;margin-top:2px;flex-shrink:0}
+.help-title{font-family:var(--font);font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.help-sub{font-size:12px;color:var(--muted)}
+.help-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;letter-spacing:.4px;font-family:var(--font);background:rgba(107,107,128,.15);color:var(--muted)}
+.help-badge.blue{background:rgba(61,139,255,.12);color:var(--blue)}
+.help-badge.red{background:rgba(231,69,96,.12);color:var(--red)}
+.help-badge.green{background:rgba(0,201,122,.12);color:var(--green)}
+.help-badge.yellow{background:rgba(255,202,44,.12);color:var(--yellow)}
+.help-badge.purple{background:rgba(168,85,247,.12);color:var(--purple)}
+.help-body{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.help-section{font-size:12px;line-height:1.7;color:var(--text)}
+.help-list{margin:6px 0 0 18px;display:flex;flex-direction:column;gap:4px}
+.help-list li{font-size:12px;color:var(--muted);line-height:1.6}
+.help-list li b{color:var(--text)}
+</style>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -595,7 +867,7 @@ function calcAReceber(){
 // ══════════════════════════════════════
 // NAVEGAÇÃO
 // ══════════════════════════════════════
-const TITLES={fechamento:'Fechamento Mensal',terceiros:'A Receber — Terceiros',historico:'Histórico',resumo:'Resumo Mensal',categorias:'Categorias',vencimentos:'Vencimentos'};
+const TITLES={fechamento:'Fechamento Mensal',terceiros:'A Receber — Terceiros',historico:'Histórico',resumo:'Resumo Mensal',categorias:'Categorias',vencimentos:'Vencimentos',projecao:'Projeção Futura',ajuda:'Como Usar'};
 
 function goto(p){
   document.querySelectorAll('.content').forEach(c=>c.classList.remove('active'));
@@ -609,7 +881,7 @@ function goto(p){
 }
 
 function renderPage(p){
-  ({fechamento:renderFechamento,terceiros:renderTerceiros,historico:renderHistorico,resumo:renderResumo,categorias:renderCategorias,vencimentos:renderVencimentos}[p]||function(){})();
+  ({fechamento:renderFechamento,terceiros:renderTerceiros,historico:renderHistorico,resumo:renderResumo,categorias:renderCategorias,vencimentos:renderVencimentos,projecao:renderProjecao,ajuda:function(){}}[p]||function(){})();
 }
 
 function getActivePage(){
@@ -1005,34 +1277,68 @@ function renderVencimentos(){
   const venc=DB.venc,hoje=new Date();
   function pV(dia){const d=new Date(hoje.getFullYear(),hoje.getMonth(),dia);if(d<=hoje)d.setMonth(d.getMonth()+1);return d;}
   function dD(d){return Math.round((d-hoje)/86400000);}
+
+  // Mês atual no formato MAR-26
+  const m=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const mesAtualStr=m[hoje.getMonth()]+'-'+String(hoje.getFullYear()).slice(2);
+
   const cards=CARTOES.map(c=>{
     const dia=venc[c]||10,prox=pV(dia),diff=dD(prox);
     const pend=DB.cartao.filter(r=>r.cartao===c&&!r.pago).reduce((a,r)=>a+r.valorParcela,0);
+    const statusFatura=getStatusFatura(c,mesAtualStr); // null=sem fatura, 'pago'=tudo pago, 'pendente'=tem pendente
+
+    // Se fatura do mês atual toda paga → OK independente do dia
     let status,cls;
-    if(!pend){status='✅ LIMPO';cls='';}
-    else if(diff<=3){status='🔴 URGENTE';cls='urg';}
-    else if(diff<=7){status='🟡 ATENÇÃO';cls='atc';}
-    else{status='🟢 OK';cls='';}
-    return{c,dia,prox,diff,pend,status,cls};
+    if(statusFatura==='pago'){
+      status='✅ FATURA PAGA';cls='';
+    } else if(!pend){
+      status='✅ LIMPO';cls='';
+    } else if(diff<=3){
+      status='🔴 URGENTE';cls='urg';
+    } else if(diff<=7){
+      status='🟡 ATENÇÃO';cls='atc';
+    } else {
+      status='🟢 OK';cls='';
+    }
+
+    // % do ciclo (dias desde último vencimento até próximo)
+    const diasCiclo=30;
+    const diasRestantes=Math.max(0,diff);
+    const pctUsado=Math.round((diasCiclo-diasRestantes)/diasCiclo*100);
+
+    return{c,dia,prox,diff,pend,status,cls,pctUsado,statusFatura};
   });
+
   document.getElementById('vencGrid').innerHTML=cards.map(v=>`
-    <div class="vc ${v.cls}">
-      <div class="vc-name">${v.c}</div>
-      <div class="vc-info">Vence dia <b>${v.dia}</b> — em <b>${v.diff}d</b></div>
-      <div class="vc-info">${v.prox.toLocaleDateString('pt-BR')}</div>
+    <div class="vc ${v.cls}" style="${v.statusFatura==='pago'?'border-color:var(--green);background:rgba(0,201,122,.03)':''}">
+      <div class="vc-name" style="display:flex;align-items:center;justify-content:space-between">
+        ${v.c}
+        ${v.statusFatura==='pago'?'<span style="font-size:10px;color:var(--green);font-family:var(--font)">✅ PAGA</span>':''}
+      </div>
+      <div class="vc-info">Vence dia <b>${v.dia}</b></div>
+      <div class="vc-info">${v.prox.toLocaleDateString('pt-BR')} <span style="color:${v.diff<=3?'var(--red)':v.diff<=7?'var(--yellow)':'var(--muted)'}">(${v.diff}d)</span></div>
+      <div class="vc-status-bar">
+        <div class="vc-progress"><div class="vc-prog-fill" style="width:${v.pctUsado}%;background:${v.diff<=3?'var(--red)':v.diff<=7?'var(--yellow)':'var(--blue)'}"></div></div>
+        <span style="font-size:10px;color:var(--muted);white-space:nowrap">${v.diff}d</span>
+      </div>
       <div class="vc-val ${v.pend?'nr':'ng'}">${fmt(v.pend)}</div>
       <div style="margin-top:5px"><span class="tag ${v.cls==='urg'?'tr':v.cls==='atc'?'ty':'tg'}">${v.status}</span></div>
     </div>`).join('');
+
   document.getElementById('tVenc').innerHTML=cards.map(v=>`
     <tr>
       <td><b>${v.c}</b></td>
       <td style="color:var(--muted)">Dia ${v.dia}</td>
       <td>${v.prox.toLocaleDateString('pt-BR')} <span style="color:var(--muted);font-size:11px">(${v.diff}d)</span></td>
       <td class="money ${v.pend?'nr':'ng'}">${fmt(v.pend)}</td>
-      <td><span class="tag ${v.cls==='urg'?'tr':v.cls==='atc'?'ty':'tg'}">${v.status}</span></td>
+      <td><span class="tag ${v.statusFatura==='pago'?'tg':v.cls==='urg'?'tr':v.cls==='atc'?'ty':'tg'}">${v.status}</span></td>
     </tr>`).join('');
+
   document.getElementById('vconfForm').innerHTML=CARTOES.map(c=>`
     <div class="field"><label>${c}</label><input type="number" id="vc-${c.replace(/\s/g,'-')}" min="1" max="31" value="${venc[c]||10}"></div>`).join('');
+
+  // Verificar alertas após render
+  checkVencimentos();
 }
 function salvarVconf(){
   CARTOES.forEach(c=>{const v=parseInt(document.getElementById('vc-'+c.replace(/\s/g,'-'))?.value);if(v>=1&&v<=31)DB.venc[c]=v;});
@@ -1188,15 +1494,207 @@ function importData(e){
   r.readAsText(f);e.target.value='';
 }
 
+
+// ══════════════════════════════════════
+// NOTIFICAÇÕES DE VENCIMENTO
+// ══════════════════════════════════════
+function checkVencimentos(){
+  const venc=DB.venc, hoje=new Date();
+  function pV(dia){const d=new Date(hoje.getFullYear(),hoje.getMonth(),dia);if(d<=hoje)d.setMonth(d.getMonth()+1);return d;}
+  function dD(d){return Math.round((d-hoje)/86400000);}
+
+  let urgentes=[];
+  CARTOES.forEach(c=>{
+    const dia=venc[c]||10;
+    const prox=pV(dia);
+    const diff=dD(prox);
+    const pend=DB.cartao.filter(r=>r.cartao===c&&!r.pago).reduce((a,r)=>a+r.valorParcela,0);
+    if(pend>0&&diff<=3) urgentes.push({c,diff,pend,prox});
+  });
+
+  // Badge no menu
+  const badge=document.getElementById('venc-badge');
+  if(badge){
+    if(urgentes.length){badge.style.display='inline-block';badge.textContent=urgentes.length;}
+    else badge.style.display='none';
+  }
+
+  // Notificação do navegador
+  if(urgentes.length&&'Notification' in window){
+    if(Notification.permission==='granted'){
+      urgentes.forEach(u=>{
+        const key='venc_notif_'+u.c+'_'+u.prox.toDateString();
+        if(!sessionStorage.getItem(key)){
+          new Notification('💳 Vencimento Próximo — '+u.c,{
+            body:'Vence em '+u.diff+'d ('+u.prox.toLocaleDateString('pt-BR')+') · Pendente: '+fmt(u.pend),
+            icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💳</text></svg>'
+          });
+          sessionStorage.setItem(key,'1');
+        }
+      });
+    } else if(Notification.permission!=='denied'){
+      Notification.requestPermission().then(p=>{if(p==='granted')checkVencimentos();});
+    }
+  }
+}
+
+// ══════════════════════════════════════
+// STATUS FATURA — todos pagos = ✅ OK
+// ══════════════════════════════════════
+function getStatusFatura(cartao, mes){
+  const parcelas=DB.cartao.filter(r=>r.cartao===cartao&&r.mes===mes);
+  if(!parcelas.length) return null; // sem fatura
+  const todas=parcelas.every(r=>r.pago);
+  return todas ? 'pago' : 'pendente';
+}
+
+// ══════════════════════════════════════
+// PROJEÇÃO FUTURA
+// ══════════════════════════════════════
+function initEntProg(){
+  if(!DB.entradasProg) DB.entradasProg=[];
+  saveDB();
+}
+initEntProg();
+
+function addEntradaProg(){
+  DB.entradasProg.push({id:uid(),descricao:'SALÁRIO',valor:0,mes:getMes(),tipo:'SALÁRIO'});
+  saveDB();renderProjecao();
+}
+
+function removeEntProg(id){
+  DB.entradasProg=DB.entradasProg.filter(r=>r.id!==id);
+  saveDB();renderProjecao();
+}
+
+function updateEntProg(id,field,val){
+  const r=DB.entradasProg.find(r=>r.id===id);
+  if(r){r[field]=field==='valor'?parseFloat(val)||0:val;saveDB();}
+}
+
+function renderProjecao(){
+  const hoje=new Date();
+  const mAtual=getMes();
+
+  // Renderizar entradas programadas
+  const ep=DB.entradasProg||[];
+  document.getElementById('entradasProg').innerHTML=ep.length?ep.map(r=>`
+    <div class="proj-entry">
+      <select style="background:transparent;border:none;color:var(--muted);font-size:11px;font-family:var(--font);width:110px;outline:none" onchange="updateEntProg('${r.id}','mes',this.value)">
+        ${MESES.map(m=>`<option value="${m}" ${m===r.mes?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <select style="background:transparent;border:none;color:var(--muted);font-size:11px;font-family:var(--font);width:120px;outline:none" onchange="updateEntProg('${r.id}','tipo',this.value)">
+        ${['SALÁRIO','EXTRA','RENDIMENTO','TRANSFERÊNCIA','OUTROS'].map(t=>`<option ${t===r.tipo?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <input placeholder="Descrição..." value="${r.descricao}" style="flex:1" oninput="updateEntProg('${r.id}','descricao',this.value)">
+      <input type="number" placeholder="Valor" value="${r.valor||''}" style="width:110px;text-align:right" oninput="updateEntProg('${r.id}','valor',this.value)">
+      <button class="btn-icon btn-sm" onclick="removeEntProg('${r.id}')">🗑️</button>
+    </div>`).join('')
+  :`<div style="font-size:12px;color:var(--muted2);padding:8px 0">Nenhuma entrada programada. Clique em "+ Adicionar" para incluir salários futuros.</div>`;
+
+  // Calcular projeção mês a mês
+  let saldoAcum=DB.saldoInicial?.valor||0;
+  const dataRef=DB.saldoInicial?.data||'2026-01-01';
+  let maxAbs=0;
+  const projData=[];
+
+  MESES.forEach(mes=>{
+    // Entradas lançadas
+    const entLanc=DB.entrada.filter(r=>r.mes===mes).reduce((a,r)=>a+r.valor,0);
+    // Entradas programadas
+    const entProg=(DB.entradasProg||[]).filter(r=>r.mes===mes).reduce((a,r)=>a+r.valor,0);
+    const totalEnt=entLanc+entProg;
+    // Gastos MEU (cartão pago ou a pagar)
+    const gasCart=DB.cartao.filter(r=>r.mes===mes&&r.tipo==='MEU').reduce((a,r)=>a+r.valorParcela,0);
+    // PIX/Débito
+    const gasPix=DB.pix.filter(r=>r.mes===mes).reduce((a,r)=>a+r.valor,0);
+    const totalSai=gasCart+gasPix;
+    const resultado=totalEnt-totalSai;
+    saldoAcum+=resultado;
+    if(Math.abs(saldoAcum)>maxAbs) maxAbs=Math.abs(saldoAcum);
+
+    const isMesAtual=mes===mAtual;
+    const isFuturo=MESES.indexOf(mes)>MESES.indexOf(mAtual);
+    projData.push({mes,totalEnt,entLanc,entProg,gasCart,gasPix,totalSai,resultado,saldoAcum,isMesAtual,isFuturo});
+  });
+
+  // Saldo acumulado visual
+  const maxS=Math.max(...projData.map(d=>Math.abs(d.saldoAcum)),1);
+  const lastPos=projData.filter(d=>d.saldoAcum>0).pop();
+  const lastNeg=projData.filter(d=>d.saldoAcum<0).pop();
+  document.getElementById('projSaldoAcum').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-family:var(--font);font-weight:700;font-size:13px">Saldo Acumulado Projetado</div>
+      <div style="display:flex;gap:16px;font-size:11px">
+        <span><span style="color:var(--green)">●</span> Pico positivo: <b style="color:var(--green)">${lastPos?fmt(lastPos.saldoAcum):'—'}</b></span>
+        ${lastNeg?`<span><span style="color:var(--red)">●</span> Pico negativo: <b style="color:var(--red)">${fmt(lastNeg.saldoAcum)}</b></span>`:''}
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:2px;height:56px">
+      ${projData.map(d=>{
+        const h=Math.round(Math.abs(d.saldoAcum)/maxS*50);
+        const cor=d.saldoAcum>=0?'var(--green)':'var(--red)';
+        const op=d.isFuturo?0.5:1;
+        return`<div title="${d.mes}: ${fmt(d.saldoAcum)}" style="flex:1;min-width:4px;height:${h}px;background:${cor};opacity:${op};border-radius:2px 2px 0 0;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${op}"></div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:4px;font-family:var(--font)">
+      <span>JAN-26</span><span>JUN-26</span><span>DEZ-26</span><span>JUN-27</span><span>DEZ-27</span>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted)">
+      <span style="opacity:.5">████</span> = futuro (estimado) &nbsp;&nbsp;
+      <span style="color:var(--green)">████</span> = saldo positivo &nbsp;&nbsp;
+      <span style="color:var(--red)">████</span> = saldo negativo
+    </div>
+  `;
+
+  // Tabela de projeção
+  const rows=projData.filter(d=>d.totalEnt||d.totalSai||d.isMesAtual);
+  document.getElementById('projTimeline').innerHTML=`
+    <div class="proj-row header">
+      <div class="proj-cell header">Mês</div>
+      <div class="proj-cell header">Entradas</div>
+      <div class="proj-cell header">Prog.</div>
+      <div class="proj-cell header">Cartões</div>
+      <div class="proj-cell header">PIX/Déb</div>
+      <div class="proj-cell header">Resultado</div>
+      <div class="proj-cell header">Saldo Acum.</div>
+    </div>
+    ${rows.map(d=>`
+    <div class="proj-row ${d.isMesAtual?'atual':''} ${d.saldoAcum<0?'negativo':''}">
+      <div class="proj-cell mes">${d.isMesAtual?'<span style="font-size:9px;color:var(--blue);display:block;letter-spacing:.5px">ATUAL</span>':''}${d.isFuturo?'<span style="font-size:9px;color:var(--muted);display:block">EST.</span>':''}${d.mes}</div>
+      <div class="proj-cell ng money">${d.entLanc?fmt(d.entLanc):'—'}</div>
+      <div class="proj-cell" style="color:var(--teal)">${d.entProg?fmt(d.entProg):'—'}</div>
+      <div class="proj-cell nr money">${d.gasCart?fmt(d.gasCart):'—'}</div>
+      <div class="proj-cell nb money">${d.gasPix?fmt(d.gasPix):'—'}</div>
+      <div class="proj-cell ${d.resultado>=0?'ng':'nr'} money">${d.resultado>=0?'+':''}${fmt(d.resultado)}</div>
+      <div class="proj-cell saldo ${d.saldoAcum>=0?'ng':'nr'}">${fmt(d.saldoAcum)}${d.isFuturo?'<span style="font-size:9px;opacity:.5;margin-left:3px">~</span>':''}</div>
+    </div>`).join('')}
+  `;
+}
+
+// ══════════════════════════════════════
+// VENCIMENTOS MELHORADO — com status fatura
+// ══════════════════════════════════════
+
 // ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
 document.getElementById('mesLabel').textContent=getMes();
-// Pré-preencher data do saldo inicial
 document.getElementById('si-data').value=today();
 renderFechamento();
 fillSel('fhMes',MESES,true);
 fillSel('fcMes',MESES,true);
+// Pedir permissão de notificação
+if('Notification' in window && Notification.permission==='default'){
+  setTimeout(()=>{
+    Notification.requestPermission();
+  }, 2000);
+}
+// Checar vencimentos ao iniciar
+setTimeout(checkVencimentos, 1000);
+// Checar a cada hora
+setInterval(checkVencimentos, 3600000);
 </script>
 </body>
 </html>
