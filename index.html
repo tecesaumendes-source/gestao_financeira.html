@@ -852,11 +852,23 @@ function fillSel(id,opts,all=false){
 function calcSaldoAtual(){
   const si=DB.saldoInicial;
   const dataRef=si.data||'2000-01-01';
-  // Entradas depois da data de referência
-  const entradas=DB.entrada.filter(r=>r.data>=dataRef).reduce((a,r)=>a+r.valor,0);
-  // Saídas depois da data de referência (cartão pago + pix)
-  const cartPago=DB.cartao.filter(r=>r.pago&&(r.dataPagamento||r.data||'')>=dataRef).reduce((a,r)=>a+r.valorParcela,0);
-  const pix=DB.pix.filter(r=>r.data>=dataRef).reduce((a,r)=>a+r.valor,0);
+  const hj=today(); // YYYY-MM-DD de hoje
+
+  // Entradas com data entre referencia e HOJE (inclusive)
+  const entradas=DB.entrada
+    .filter(r=>r.data&&r.data>=dataRef&&r.data<=hj)
+    .reduce((a,r)=>a+r.valor,0);
+
+  // Cartão: só se marcado pago E dataPagamento <= hoje
+  const cartPago=DB.cartao
+    .filter(r=>r.pago&&r.dataPagamento&&r.dataPagamento>=dataRef&&r.dataPagamento<=hj)
+    .reduce((a,r)=>a+r.valorParcela,0);
+
+  // PIX com data <= hoje
+  const pix=DB.pix
+    .filter(r=>r.data&&r.data>=dataRef&&r.data<=hj)
+    .reduce((a,r)=>a+r.valor,0);
+
   return (si.valor||0)+entradas-cartPago-pix;
 }
 
@@ -926,7 +938,7 @@ function renderFechamento(){
     <div class="banco-saldo-principal">
       <div class="banco-saldo-lbl">🏦 Saldo Atual no Banco</div>
       <div class="banco-saldo-val ${saldoReal>=0?'pos':'neg'}">${fmt(saldoReal)}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">Baseado no saldo inicial + movimentações</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">Entradas e pagamentos com data ≤ hoje</div>
     </div>
     <div class="banco-divider"></div>
     <div class="banco-breakdown">
@@ -1592,30 +1604,60 @@ function renderProjecao(){
     </div>`).join('')
   :`<div style="font-size:12px;color:var(--muted2);padding:8px 0">Nenhuma entrada programada. Clique em "+ Adicionar" para incluir salários futuros.</div>`;
 
-  // Calcular projeção mês a mês
-  let saldoAcum=DB.saldoInicial?.valor||0;
-  const dataRef=DB.saldoInicial?.data||'2026-01-01';
-  let maxAbs=0;
+  // Projeção parte do saldo REAL de hoje
+  const saldoHoje=calcSaldoAtual();
+  const hj=today();
+  let saldoAcum=saldoHoje;
   const projData=[];
 
   MESES.forEach(mes=>{
-    // Entradas lançadas
-    const entLanc=DB.entrada.filter(r=>r.mes===mes).reduce((a,r)=>a+r.valor,0);
-    // Entradas programadas
+    const idxMes=MESES.indexOf(mes);
+    const isMesAtual=mes===mAtual;
+    const isFuturo=idxMes>MESES.indexOf(mAtual);
+    const isPassado=idxMes<MESES.indexOf(mAtual);
+
+    // Entradas futuras já lançadas (data > hoje)
+    const entLanc=DB.entrada
+      .filter(r=>r.mes===mes&&r.data&&r.data>hj)
+      .reduce((a,r)=>a+r.valor,0);
+
+    // Entradas programadas (sempre projeção)
     const entProg=(DB.entradasProg||[]).filter(r=>r.mes===mes).reduce((a,r)=>a+r.valor,0);
     const totalEnt=entLanc+entProg;
-    // Gastos MEU (cartão pago ou a pagar)
-    const gasCart=DB.cartao.filter(r=>r.mes===mes&&r.tipo==='MEU').reduce((a,r)=>a+r.valorParcela,0);
-    // PIX/Débito
-    const gasPix=DB.pix.filter(r=>r.mes===mes).reduce((a,r)=>a+r.valor,0);
+
+    // Cartões futuros não pagos
+    let gasCart;
+    if(isMesAtual){
+      // parcelas do mês atual ainda não pagas hoje
+      gasCart=DB.cartao.filter(r=>r.mes===mes&&r.tipo==='MEU'&&
+        (!r.pago||(r.dataPagamento&&r.dataPagamento>hj)))
+        .reduce((a,r)=>a+r.valorParcela,0);
+    } else if(isFuturo){
+      gasCart=DB.cartao.filter(r=>r.mes===mes&&r.tipo==='MEU')
+        .reduce((a,r)=>a+r.valorParcela,0);
+    } else {
+      // passado: só pendentes esquecidos
+      gasCart=DB.cartao.filter(r=>r.mes===mes&&r.tipo==='MEU'&&!r.pago)
+        .reduce((a,r)=>a+r.valorParcela,0);
+    }
+
+    // PIX futuros (data > hoje)
+    const gasPix=DB.pix.filter(r=>r.mes===mes&&r.data&&r.data>hj)
+      .reduce((a,r)=>a+r.valor,0);
+
     const totalSai=gasCart+gasPix;
     const resultado=totalEnt-totalSai;
-    saldoAcum+=resultado;
-    if(Math.abs(saldoAcum)>maxAbs) maxAbs=Math.abs(saldoAcum);
 
-    const isMesAtual=mes===mAtual;
-    const isFuturo=MESES.indexOf(mes)>MESES.indexOf(mAtual);
-    projData.push({mes,totalEnt,entLanc,entProg,gasCart,gasPix,totalSai,resultado,saldoAcum,isMesAtual,isFuturo});
+    if(isPassado){
+      // Meses passados não acumulam — já estão no saldoHoje
+      if(totalEnt||totalSai){
+        projData.push({mes,totalEnt,entLanc,entProg,gasCart,gasPix,totalSai,resultado,saldoAcum:null,isMesAtual,isFuturo,isPassado:true});
+      }
+      return;
+    }
+
+    saldoAcum+=resultado;
+    projData.push({mes,totalEnt,entLanc,entProg,gasCart,gasPix,totalSai,resultado,saldoAcum,isMesAtual,isFuturo,isPassado:false});
   });
 
   // Saldo acumulado visual
@@ -1631,12 +1673,16 @@ function renderProjecao(){
       </div>
     </div>
     <div style="display:flex;align-items:flex-end;gap:2px;height:56px">
-      ${projData.map(d=>{
-        const h=Math.round(Math.abs(d.saldoAcum)/maxS*50);
-        const cor=d.saldoAcum>=0?'var(--green)':'var(--red)';
-        const op=d.isFuturo?0.5:1;
-        return`<div title="${d.mes}: ${fmt(d.saldoAcum)}" style="flex:1;min-width:4px;height:${h}px;background:${cor};opacity:${op};border-radius:2px 2px 0 0;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${op}"></div>`;
-      }).join('')}
+      ${(()=>{
+        const validos=projData.filter(d=>d.saldoAcum!==null);
+        const mx=Math.max(...validos.map(d=>Math.abs(d.saldoAcum)),1);
+        return validos.map(d=>{
+          const h=Math.max(Math.round(Math.abs(d.saldoAcum)/mx*50),2);
+          const cor=d.saldoAcum>=0?'var(--green)':'var(--red)';
+          const op=d.isFuturo?0.4:1;
+          return '<div title="'+d.mes+': '+fmt(d.saldoAcum)+'" style="flex:1;min-width:4px;height:'+h+'px;background:'+cor+';opacity:'+op+';border-radius:2px 2px 0 0;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity='+op+'"></div>';
+        }).join('');
+      })()}
     </div>
     <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:4px;font-family:var(--font)">
       <span>JAN-26</span><span>JUN-26</span><span>DEZ-26</span><span>JUN-27</span><span>DEZ-27</span>
@@ -1648,27 +1694,46 @@ function renderProjecao(){
     </div>
   `;
 
-  // Tabela de projeção
+  // Linha separadora: saldo real hoje
+  const pinSaldo=`
+    <div class="proj-row" style="background:rgba(0,201,122,.07);border-left:3px solid var(--green)">
+      <div class="proj-cell" style="grid-column:span 6;gap:8px">
+        <span style="font-family:var(--font);font-weight:700;color:var(--green)">📍 SALDO ATUAL NO BANCO</span>
+        <span style="font-size:11px;color:var(--muted)">Data: ${hj} — base para a projeção abaixo</span>
+      </div>
+      <div class="proj-cell saldo ng" style="font-size:15px">${fmt(saldoHoje)}</div>
+    </div>`;
+
   const rows=projData.filter(d=>d.totalEnt||d.totalSai||d.isMesAtual);
   document.getElementById('projTimeline').innerHTML=`
     <div class="proj-row header">
       <div class="proj-cell header">Mês</div>
-      <div class="proj-cell header">Entradas</div>
-      <div class="proj-cell header">Prog.</div>
+      <div class="proj-cell header">Ent. lançadas</div>
+      <div class="proj-cell header">Ent. prog.</div>
       <div class="proj-cell header">Cartões</div>
       <div class="proj-cell header">PIX/Déb</div>
       <div class="proj-cell header">Resultado</div>
-      <div class="proj-cell header">Saldo Acum.</div>
+      <div class="proj-cell header">Saldo Proj.</div>
     </div>
+    ${pinSaldo}
     ${rows.map(d=>`
-    <div class="proj-row ${d.isMesAtual?'atual':''} ${d.saldoAcum<0?'negativo':''}">
-      <div class="proj-cell mes">${d.isMesAtual?'<span style="font-size:9px;color:var(--blue);display:block;letter-spacing:.5px">ATUAL</span>':''}${d.isFuturo?'<span style="font-size:9px;color:var(--muted);display:block">EST.</span>':''}${d.mes}</div>
+    <div class="proj-row ${d.isMesAtual?'atual':''} ${d.saldoAcum!==null&&d.saldoAcum<0?'negativo':''}">
+      <div class="proj-cell mes">
+        ${d.isMesAtual?'<span style="font-size:9px;color:var(--blue);display:block">ATUAL</span>':''}
+        ${d.isFuturo?'<span style="font-size:9px;color:var(--teal);display:block">FUTURO</span>':''}
+        ${d.isPassado?'<span style="font-size:9px;color:var(--muted);display:block">PASSADO</span>':''}
+        ${d.mes}
+      </div>
       <div class="proj-cell ng money">${d.entLanc?fmt(d.entLanc):'—'}</div>
       <div class="proj-cell" style="color:var(--teal)">${d.entProg?fmt(d.entProg):'—'}</div>
       <div class="proj-cell nr money">${d.gasCart?fmt(d.gasCart):'—'}</div>
       <div class="proj-cell nb money">${d.gasPix?fmt(d.gasPix):'—'}</div>
-      <div class="proj-cell ${d.resultado>=0?'ng':'nr'} money">${d.resultado>=0?'+':''}${fmt(d.resultado)}</div>
-      <div class="proj-cell saldo ${d.saldoAcum>=0?'ng':'nr'}">${fmt(d.saldoAcum)}${d.isFuturo?'<span style="font-size:9px;opacity:.5;margin-left:3px">~</span>':''}</div>
+      <div class="proj-cell ${d.resultado>=0?'ng':'nr'} money">${d.resultado!==0?(d.resultado>0?'+':'')+fmt(d.resultado):'—'}</div>
+      <div class="proj-cell saldo">
+        ${d.saldoAcum!==null
+          ?'<span class="'+(d.saldoAcum>=0?'ng':'nr')+'">'+fmt(d.saldoAcum)+'</span><span style="font-size:9px;opacity:.35;margin-left:2px">~</span>'
+          :'<span style="color:var(--muted2)">—</span>'}
+      </div>
     </div>`).join('')}
   `;
 }
