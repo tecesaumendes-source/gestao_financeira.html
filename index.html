@@ -793,6 +793,8 @@ select option{background:var(--s2)}
 <div class="toast" id="toast"></div>
 
 <script>
+function today(){return new Date().toISOString().slice(0,10);}
+
 // ══════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════
@@ -835,7 +837,6 @@ initDB();
 const fmt=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtS=v=>{v=Number(v||0);return v>=1000?'R$'+(v/1000).toFixed(1)+'k':'R$'+v.toFixed(0)};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
-const today=()=>new Date().toISOString().slice(0,10);
 const getMes=()=>MESES[mesIdx];
 
 function toast(msg,t='ok'){
