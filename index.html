@@ -20,7 +20,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--m
 .app{display:flex;height:100vh;overflow:hidden}
 
 /* SIDEBAR */
-.sidebar{width:220px;min-width:220px;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width .25s;overflow:hidden;z-index:50}
+.sidebar{width:220px;min-width:220px;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width .25s;overflow:hidden}
 .sidebar.collapsed{width:64px;min-width:64px}
 .logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden}
 .logo-icon{font-size:22px;min-width:26px;text-align:center}
@@ -165,9 +165,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
 .btn-icon:hover{color:var(--text)}
 
 /* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(4px);padding:16px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);padding:16px}
 .overlay.open{display:flex}
-.modal{background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;position:relative;z-index:2001}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;position:relative}
 .modal h3{font-family:var(--font);font-weight:700;font-size:16px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
 .mclose{position:absolute;top:13px;right:13px;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;cursor:pointer;color:var(--muted);font-size:14px;line-height:1}
 .mclose:hover{color:var(--text)}
@@ -250,7 +250,6 @@ select option{background:var(--s2)}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 @media(max-width:768px){
-  .modal{padding:18px;border-radius:14px;margin:8px;width:calc(100% - 16px);}
   .sidebar{position:fixed;left:-220px;top:0;bottom:0;z-index:100;transition:left .25s}
   .sidebar.mo{left:0}
   .fech-grid{grid-template-columns:1fr}
@@ -307,7 +306,7 @@ select option{background:var(--s2)}
       <button class="mes-arrow" onclick="navMes(1)">›</button>
     </div>
     <div id="syncStatus" style="font-size:11px;font-family:var(--font);color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap">
-      <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>
+      <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;animation:none"></span>
       <span id="syncTxt">—</span>
     </div>
     <button class="btn btn-red btn-sm" onclick="openModal('cartao')">+ Lançar</button>
@@ -431,7 +430,24 @@ select option{background:var(--s2)}
 </div></div>
 
 <!-- MODAIS -->
-<!-- MODAIS -->
+<!-- SALDO INICIAL -->
+<div class="overlay" id="modal-saldo">
+<div class="modal">
+  <button class="mclose" onclick="closeModal('saldo')">✕</button>
+  <h3>🏦 Saldo Inicial do Banco</h3>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.6">
+    Digite o saldo que você tinha no banco em uma data de referência.<br>
+    O sistema vai somar entradas e subtrair gastos a partir daí.
+  </p>
+  <div class="fg">
+    <div class="field"><label>Data de referência</label><input type="date" id="si-data"></div>
+    <div class="field"><label>Saldo nessa data (R$)</label><input type="number" id="si-val" step="0.01" placeholder="Ex: 3200.00"></div>
+  </div>
+  <div class="ff">
+    <button class="btn btn-ghost" onclick="closeModal('saldo')">Cancelar</button>
+    <button class="btn btn-green" onclick="salvarSaldoInicial()">Salvar</button>
+  </div>
+</div></div>
 
 <!-- CARTÃO -->
 <div class="overlay" id="modal-cartao">
@@ -928,6 +944,88 @@ function renderFechamento(){
       <div class="banco-saldo-lbl">🏦 Saldo Atual no Banco</div>
       <div class="banco-saldo-val ${saldoReal>=0?'pos':'neg'}">${fmt(saldoReal)}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px">Entradas e pagamentos com data ≤ hoje</div>
+    </div>
+    <div class="banco-divider"></div>
+    <div class="banco-breakdown">
+      <div class="banco-item">
+        <div class="banco-item-lbl">Saldo Inicial</div>
+        <div class="banco-item-val ng">${fmt(DB.saldoInicial.valor)}</div>
+        <div style="font-size:10px;color:var(--muted)">${DB.saldoInicial.data||'—'}</div>
+      </div>
+      <div class="banco-item">
+        <div class="banco-item-lbl">💜 A Receber</div>
+        <div class="banco-item-val np">${fmt(aReceber)}</div>
+        <div style="font-size:10px;color:var(--muted)">de terceiros</div>
+      </div>
+      <div class="banco-item">
+        <div class="banco-item-lbl">Saldo + Reembolsos</div>
+        <div class="banco-item-val" style="color:var(--teal)">${fmt(saldoReal+aReceber)}</div>
+        <div style="font-size:10px;color:var(--muted)">se todos pagarem</div>
+      </div>
+      <div class="banco-item">
+        <div class="banco-item-lbl">Ainda Pagar ${mes}</div>
+        <div class="banco-item-val nr">${fmt(pendCart)}</div>
+        <div style="font-size:10px;color:${saldoReal>=pendCart?'var(--green)':'var(--red)'}">${saldoReal>=pendCart?'✅ Banco cobre':'⚠️ Insuficiente'}</div>
+      </div>
+    </div>
+    <button class="btn-edit-saldo" onclick="openModal('saldo')">⚙️ Atualizar saldo inicial</button>
+  `;
+
+  // KPIs
+  document.getElementById('fKpis').innerHTML=`
+    <div class="kpi green"><div class="kpi-lbl">💰 Entradas</div><div class="kpi-val">${fmt(totEnt)}</div><div class="kpi-sub">${eMes.length} lançamentos</div></div>
+    <div class="kpi red"><div class="kpi-lbl">💳 Meu (cartão)</div><div class="kpi-val">${fmt(totMeu)}</div><div class="kpi-sub">${cMes.filter(r=>r.tipo==='MEU').length} parcelas</div></div>
+    <div class="kpi purple"><div class="kpi-lbl">👥 Terceiro (paguei)</div><div class="kpi-val">${fmt(totTerc)}</div><div class="kpi-sub">${cMes.filter(r=>r.tipo==='TERCEIRO').length} parcelas</div></div>
+    <div class="kpi blue"><div class="kpi-lbl">📱 PIX / Débito</div><div class="kpi-val">${fmt(totPix)}</div><div class="kpi-sub">${pMes.length} lançamentos</div></div>
+    <div class="kpi ${saldoMes>=0?'green':'red'}"><div class="kpi-lbl">📊 Saldo do Mês</div><div class="kpi-val">${fmt(saldoMes)}</div><div class="kpi-sub">Entradas − meus gastos</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">⏳ Falta Pagar</div><div class="kpi-val">${fmt(pendCart)}</div><div class="kpi-sub">${cMes.filter(r=>!r.pago).length} parcelas</div></div>
+  `;
+
+  // BARRA
+  const maxV=Math.max(totEnt,totMeu+totPix,1);
+  const pctG=Math.min(100,Math.round((totMeu+totPix)/maxV*100));
+  document.getElementById('saldoBar').innerHTML=`
+    <div class="sbar-top">
+      <div class="sbar-title">Entradas vs Gastos — ${mes}</div>
+      <div class="sbar-val ${saldoMes>=0?'ng':'nr'}">${saldoMes>=0?'+':''}${fmt(saldoMes)}</div>
+    </div>
+    <div class="ptrack"><div class="pfill" style="width:${pctG}%;background:${saldoMes>=0?'var(--green)':'var(--red)'}"></div></div>
+    <div class="sbar-legs">
+      <div class="sleg"><span class="dot" style="background:var(--green)"></span>Entradas: <b>${fmt(totEnt)}</b></div>
+      <div class="sleg"><span class="dot" style="background:var(--red)"></span>Meu: <b>${fmt(totMeu)}</b></div>
+      <div class="sleg"><span class="dot" style="background:var(--purple)"></span>Terceiro: <b>${fmt(totTerc)}</b></div>
+      <div class="sleg"><span class="dot" style="background:var(--blue)"></span>PIX: <b>${fmt(totPix)}</b></div>
+    </div>
+  `;
+
+  // TERCEIROS DESTE MÊS (widget rápido)
+  const tercMes=cMes.filter(r=>r.tipo==='TERCEIRO');
+  const tercWidget=document.getElementById('tercWidget');
+  if(tercMes.length){
+    const pendTerc=tercMes.filter(r=>!r.reembolsado).reduce((a,r)=>a+r.valorParcela,0);
+    tercWidget.innerHTML=`
+    <div class="terc-widget">
+      <div class="terc-header">
+        <div class="terc-title">👥 Terceiros — paguei mas vou receber de volta em ${mes}</div>
+        <div class="terc-total">${fmt(pendTerc)} pendente</div>
+      </div>
+      <div class="terc-list">
+        ${tercMes.map(r=>`
+          <div class="terc-item">
+            <div class="terc-item-info">
+              <div class="terc-item-nome">${r.descricao} <span style="color:var(--muted);font-size:10px">${r.cartao}</span></div>
+              <div class="terc-item-det">${r.parcelaAtual}/${r.totalParcelas} · ${r.categoria||''}</div>
+            </div>
+            <div class="terc-item-val ${r.reembolsado?'recebido':''}">${fmt(r.valorParcela)}</div>
+            <button class="btn-receber ${r.reembolsado?'recebido':''}" onclick="abrirReembolso('${r.id}')">
+              ${r.reembolsado?'✅ Recebido':'💜 Registrar recebimento'}
+            </button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  } else {
+    tercWidget.innerHTML='';
+  }
 
   // LABELS
   document.getElementById('totCartLbl').textContent=fmt(totCart);
@@ -938,26 +1036,22 @@ function renderFechamento(){
   renderCartoesGrupo(cMes);
 
   // ENTRADAS
-  document.getElementById('fEntradas').innerHTML=eMes.length?eMes.map(function(r){
-    var tipo=r.tipoEntrada||'';
-    var dt=r.data||'';
-    return '<div class="fech-row">'+
-      '<div class="fech-name">'+r.descricao+'<br><span style="font-size:10px;color:var(--muted)">'+tipo+' · '+dt+'</span></div>'+
-      '<div class="fech-val ng money">'+fmt(r.valor)+'</div>'+
-      '<button class="btn-icon btn-sm" onclick="deletar(\'entrada\',\''+r.id+'\')">🗑️</button>'+
-    '</div>';
-  }).join(''):'<div class="empty"><div class="empty-i">🏦</div><p>Nenhuma entrada</p></div>';
+  document.getElementById('fEntradas').innerHTML=eMes.length?eMes.map(r=>`
+    <div class="fech-row">
+      <div class="fech-name">${r.descricao}<br><span style="font-size:10px;color:var(--muted)">${r.tipoEntrada||''} · ${r.data||''}</span></div>
+      <div class="fech-val ng money">${fmt(r.valor)}</div>
+      <button class="btn-icon btn-sm" onclick="deletar('entrada','${r.id}')">🗑️</button>
+    </div>`)
+    .join(''):`<div class="empty"><div class="empty-i">🏦</div><p>Nenhuma entrada</p></div>`;
 
   // PIX
-  document.getElementById('fPix').innerHTML=pMes.length?pMes.map(function(r){
-    var tp=r.tipoPix||'';
-    var cat=r.categoria||'';
-    return '<div class="fech-row">'+
-      '<div class="fech-name">'+r.descricao+'<br><span style="font-size:10px;color:var(--muted)">'+tp+' · '+cat+'</span></div>'+
-      '<div class="fech-val nr money">'+fmt(r.valor)+'</div>'+
-      '<button class="btn-icon btn-sm" onclick="deletar(\'pix\',\''+r.id+'\')">🗑️</button>'+
-    '</div>';
-  }).join(''):'<div class="empty"><div class="empty-i">📱</div><p>Nenhum PIX</p></div>';
+  document.getElementById('fPix').innerHTML=pMes.length?pMes.map(r=>`
+    <div class="fech-row">
+      <div class="fech-name">${r.descricao}<br><span style="font-size:10px;color:var(--muted)">${r.tipoPix||''} · ${r.categoria||''}</span></div>
+      <div class="fech-val nr money">${fmt(r.valor)}</div>
+      <button class="btn-icon btn-sm" onclick="deletar('pix','${r.id}')">🗑️</button>
+    </div>`)
+    .join(''):`<div class="empty"><div class="empty-i">📱</div><p>Nenhum PIX</p></div>`;
 
   // FALTA PAGAR
   const falta=cMes.filter(r=>!r.pago);
@@ -965,86 +1059,74 @@ function renderFechamento(){
   document.getElementById('faltaLbl').textContent=totFalta?fmt(totFalta):'✅ Tudo pago!';
   document.getElementById('faltaLbl').style.color=totFalta?'var(--red)':'var(--green)';
 
-  var avisoSaldo='';
-  if(totFalta>0){
-    if(saldoReal>=totFalta){
-      avisoSaldo='<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--green)">✅ Saldo no banco ('+fmt(saldoReal)+') suficiente para cobrir tudo</td></tr>';
-    } else {
-      avisoSaldo='<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--red)">⚠️ Saldo disponível: '+fmt(Math.max(0,saldoReal))+' — faltam '+fmt(Math.max(0,totFalta-saldoReal))+' no banco</td></tr>';
-    }
-  }
+  const avisoSaldo=totFalta>0?(
+    saldoReal>=totFalta
+      ?`<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--green)">✅ Saldo no banco (${fmt(saldoReal)}) é suficiente para cobrir tudo</td></tr>`
+      :`<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--red)">⚠️ Saldo disponível: ${fmt(Math.max(0,saldoReal))} — faltam ${fmt(Math.max(0,totFalta-saldoReal))} no banco</td></tr>`
+  ):'';
 
   document.getElementById('tFalta').innerHTML=falta.length
-    ?falta.sort((a,b)=>CARTOES.indexOf(a.cartao)-CARTOES.indexOf(b.cartao)).map(function(r){
-      var cor=CCOL[r.cartao]||'var(--muted)';
-      var tagTipo=r.tipo==='TERCEIRO'?'tp':'tm';
-      return '<tr>'+
-        '<td><span class="tag" style="background:rgba(255,255,255,.04);color:'+cor+'">'+r.cartao+'</span></td>'+
-        '<td>'+r.descricao+'</td>'+
-        '<td><span class="tag '+tagTipo+'">'+r.tipo+'</span></td>'+
-        '<td style="color:var(--muted)">'+r.parcelaAtual+'/'+r.totalParcelas+'</td>'+
-        '<td class="money nr">'+fmt(r.valorParcela)+'</td>'+
-        '<td><div class="fcheck" onclick="togglePago(\''+r.id+'\')">✓</div></td>'+
-      '</tr>';
-    }).join('')+avisoSaldo
-    :'<tr><td colspan="6"><div class="empty"><div class="empty-i">✅</div><p>Tudo pago em '+mes+'!</p></div></td></tr>';
-
-  // Mostrar status do token
+    ?falta.sort((a,b)=>CARTOES.indexOf(a.cartao)-CARTOES.indexOf(b.cartao)).map(r=>`
+      <tr>
+        <td><span class="tag" style="background:rgba(255,255,255,.04);color:${CCOL[r.cartao]||'var(--muted)'}">${r.cartao}</span></td>
+        <td>${r.descricao}</td>
+        <td><span class="tag ${r.tipo==='TERCEIRO'?'tp':'tm'}">${r.tipo}</span></td>
+        <td style="color:var(--muted)">${r.parcelaAtual}/${r.totalParcelas}</td>
+        <td class="money nr">${fmt(r.valorParcela)}</td>
+        <td><div class="fcheck" onclick="togglePago('${r.id}')">✓</div></td>
+      </tr>`).join('')+avisoSaldo
+    :`<tr><td colspan="6"><div class="empty"><div class="empty-i">✅</div><p>Tudo pago em ${mes}!</p></div></td></tr>`;
 }
 
 function renderCartoesGrupo(cMes){
-  var el=document.getElementById('fCartoes');
-  if(!cMes.length){el.innerHTML='<div class="empty"><div class="empty-i">💳</div><p>Sem parcelas este mês</p></div>';return;}
-  el.innerHTML=CARTOES.map(function(c){
-    var rows=cMes.filter(function(r){return r.cartao===c;});
+  const el=document.getElementById('fCartoes');
+  if(!cMes.length){el.innerHTML=`<div class="empty"><div class="empty-i">💳</div><p>Sem parcelas este mês</p></div>`;return;}
+  el.innerHTML=CARTOES.map(c=>{
+    const rows=cMes.filter(r=>r.cartao===c);
     if(!rows.length)return'';
-    var tot=rows.reduce(function(a,r){return a+r.valorParcela;},0);
-    var pagos=rows.filter(function(r){return r.pago;}).length;
-    var terc=rows.filter(function(r){return r.tipo==='TERCEIRO';}).length;
-    var todos=pagos===rows.length;
-    var id='g-'+c.replace(/\s/g,'_');
-    var tercBadge=terc?'<span class="cbadge terc">👥 '+terc+'</span>':'';
-    var pagarBtn=todos
-      ?'<button class="btn-dpt" onclick="event.stopPropagation();pagarGrupo(\''+c+'\',false)">↩</button>'
-      :'<button class="btn-pt" onclick="event.stopPropagation();pagarGrupo(\''+c+'\',true)">✓ tudo</button>';
-    var rowsHtml=rows.map(function(r){
-      var pagoClass=r.pago?'pago':'';
-      var checkClass=r.pago?'on':'';
-      var tercIcon=r.tipo==='TERCEIRO'?'<span class="tag tp" style="font-size:9px;margin-left:4px">👥</span>':'';
-      var valClass=r.pago?'ng':'nr';
-      return '<div class="fech-row '+pagoClass+'">'+
-        '<div class="fcheck '+checkClass+'" onclick="togglePago(\''+r.id+'\')">✓</div>'+
-        '<div class="fech-name">'+r.descricao+tercIcon+'<br><span style="font-size:10px;color:var(--muted)">'+r.parcelaAtual+'/'+r.totalParcelas+'x · '+(r.categoria||'')+'</span></div>'+
-        '<div class="fech-val '+valClass+' money">'+fmt(r.valorParcela)+'</div>'+
-        '<button class="btn-icon btn-sm" onclick="deletar(\'cartao\',\''+r.id+'\')">🗑️</button>'+
-      '</div>';
-    }).join('');
-    return '<div class="cgrp">'+
-      '<div class="cgrp-hdr" onclick="toggleGrupo(\''+id+'\')">'+
-        '<span style="width:8px;height:8px;border-radius:50%;background:'+CCOL[c]+';flex-shrink:0"></span>'+
-        '<div class="cgrp-name">'+c+'</div>'+
-        tercBadge+
-        '<span class="cbadge '+(todos?'ok':'')+'">'+pagos+'/'+rows.length+' pago</span>'+
-        pagarBtn+
-        '<div class="cgrp-tot">'+fmt(tot)+'</div>'+
-        '<div class="ctgl" id="tgl-'+id+'">▼</div>'+
-      '</div>'+
-      '<div class="cgrp-body" id="'+id+'">'+rowsHtml+'</div>'+
-    '</div>';
+    const tot=rows.reduce((a,r)=>a+r.valorParcela,0);
+    const pagos=rows.filter(r=>r.pago).length;
+    const terc=rows.filter(r=>r.tipo==='TERCEIRO').length;
+    const todos=pagos===rows.length;
+    const id='g-'+c.replace(/\s/g,'_');
+    return`<div class="cgrp">
+      <div class="cgrp-hdr" onclick="toggleGrupo('${id}')">
+        <span style="width:8px;height:8px;border-radius:50%;background:${CCOL[c]};flex-shrink:0"></span>
+        <div class="cgrp-name">${c}</div>
+        ${terc?`<span class="cbadge terc">👥 ${terc}</span>`:''}
+        <span class="cbadge ${todos?'ok':''}">${pagos}/${rows.length} pago</span>
+        ${todos
+          ?`<button class="btn-dpt" onclick="event.stopPropagation();pagarGrupo('${c}',false)">↩</button>`
+          :`<button class="btn-pt" onclick="event.stopPropagation();pagarGrupo('${c}',true)">✓ tudo</button>`}
+        <div class="cgrp-tot">${fmt(tot)}</div>
+        <div class="ctgl" id="tgl-${id}">▼</div>
+      </div>
+      <div class="cgrp-body" id="${id}">
+        ${rows.map(r=>`
+          <div class="fech-row ${r.pago?'pago':''}">
+            <div class="fcheck ${r.pago?'on':''}" onclick="togglePago('${r.id}')">✓</div>
+            <div class="fech-name">${r.descricao}
+              ${r.tipo==='TERCEIRO'?`<span class="tag tp" style="font-size:9px;margin-left:4px">👥</span>`:''}
+              <br><span style="font-size:10px;color:var(--muted)">${r.parcelaAtual}/${r.totalParcelas}x · ${r.categoria||''}</span>
+            </div>
+            <div class="fech-val ${r.pago?'ng':'nr'} money">${fmt(r.valorParcela)}</div>
+            <button class="btn-icon btn-sm" onclick="deletar('cartao','${r.id}')">🗑️</button>
+          </div>`).join('')}
+      </div>
+    </div>`;
   }).join('');
-  CARTOES.forEach(function(c){
-    var rows=cMes.filter(function(r){return r.cartao===c;});
+
+  // Abrir grupos pendentes
+  CARTOES.forEach(c=>{
+    const rows=cMes.filter(r=>r.cartao===c);
     if(!rows.length)return;
-    var id='g-'+c.replace(/\s/g,'_');
-    if(rows.some(function(r){return!r.pago;})){
-      var body=document.getElementById(id);
-      var tgl=document.getElementById('tgl-'+id);
-      if(body)body.classList.add('open');
-      if(tgl)tgl.classList.add('open');
+    const id='g-'+c.replace(/\s/g,'_');
+    if(rows.some(r=>!r.pago)){
+      document.getElementById(id)?.classList.add('open');
+      document.getElementById('tgl-'+id)?.classList.add('open');
     }
   });
 }
-
 
 // ══════════════════════════════════════
 // TERCEIROS (página completa)
@@ -1056,7 +1138,7 @@ function renderTerceiros(){
   const totPend=pend.reduce((a,r)=>a+r.valorParcela,0);
   const totRec=receb.reduce((a,r)=>a+r.valorParcela,0);
 
-  document.getElementById('tercTotalGeral').textContent=totPend?'💜 '+String(fmt(totPend)||'')+' a receber':'✅ Tudo recebido!';
+  document.getElementById('tercTotalGeral').textContent=totPend?`💜 ${fmt(totPend)} a receber`:'✅ Tudo recebido!';
 
   document.getElementById('tercKpis').innerHTML=`
     <div class="kpi purple"><div class="kpi-lbl">A Receber</div><div class="kpi-val">${fmt(totPend)}</div><div class="kpi-sub">${pend.length} parcelas pendentes</div></div>
@@ -1075,13 +1157,13 @@ function renderTerceiros(){
         <td style="font-size:11px;color:var(--muted)">${r.reembolsado?(r.reembolsoObs||r.dataReembolso||'Recebido'):'—'}</td>
         <td>
           ${r.reembolsado
-            ?'<span class="tag tg">✅ Recebido</span>'
-            :'<button class="btn-receber" onclick="abrirReembolso(''+String(r.id||'')+'')">💜 Registrar</button>'}
+            ?`<span class="tag tg">✅ Recebido</span>`
+            :`<button class="btn-receber" onclick="abrirReembolso('${r.id}')">💜 Registrar</button>`}
         </td>
         <td><button class="btn-icon" onclick="deletar('cartao','${r.id}')">🗑️</button></td>
       </tr>`)
     .join('')
-    :'<tr><td colspan="8"><div class="empty"><div class="empty-i">👥</div><p>Nenhum gasto de terceiro registrado</p></div></td></tr>';
+    :`<tr><td colspan="8"><div class="empty"><div class="empty-i">👥</div><p>Nenhum gasto de terceiro registrado</p></div></td></tr>`;
 }
 
 // ══════════════════════════════════════
@@ -1098,7 +1180,7 @@ function abrirReembolso(id){
     return;
   }
   reembolsoId=id;
-  document.getElementById('reembolsoDesc').innerHTML='<b>'+String(r.descricao||'')+'</b> — '+String(r.cartao||'')+'<br>Parcela '+String(r.parcelaAtual||'')+'/'+String(r.totalParcelas||'')+' · Mês '+String(r.mes||'')+'<br>Valor pago: <b style="color:var(--purple)">'+String(fmt(r.valorParcela)||'')+'</b>';
+  document.getElementById('reembolsoDesc').innerHTML=`<b>${r.descricao}</b> — ${r.cartao}<br>Parcela ${r.parcelaAtual}/${r.totalParcelas} · Mês ${r.mes}<br>Valor pago: <b style="color:var(--purple)">${fmt(r.valorParcela)}</b>`;
   document.getElementById('re-data').value=today();
   document.getElementById('re-val').value=r.valorParcela.toFixed(2);
   document.getElementById('re-obs').value='';
@@ -1138,10 +1220,10 @@ function renderHistorico(){
    .sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
 
   document.getElementById('tHist').innerHTML=rows.length?rows.map(r=>{
-    const tipo=r._t==='cartao'?'<span class="tag '+String(r.tipo==='TERCEIRO'?'tp':'tr'||'')+'">'+String(r.tipo==='TERCEIRO'?'👥 TERC':'CARTÃO'||'')+'</span>':r._t==='pix'?'<span class="tag tb">PIX</span>':'<span class="tag tg">ENTRADA</span>';
+    const tipo=r._t==='cartao'?`<span class="tag ${r.tipo==='TERCEIRO'?'tp':'tr'}">${r.tipo==='TERCEIRO'?'👥 TERC':'CARTÃO'}</span>`:r._t==='pix'?'<span class="tag tb">PIX</span>':'<span class="tag tg">ENTRADA</span>';
     const val=r._t==='cartao'?r.valorParcela:r.valor;
-    const det=r._t==='cartao'?''+String(r.cartao||'')+' '+String(r.parcelaAtual||'')+'/'+String(r.totalParcelas||'')+'':r._t==='pix'?r.tipoPix:r.tipoEntrada;
-    const pc=r._t==='cartao'?'<div class="fcheck '+String(r.pago?'on':''||'')+'" onclick="togglePago(''+String(r.id||'')+'')">✓</div>':'—';
+    const det=r._t==='cartao'?`${r.cartao} ${r.parcelaAtual}/${r.totalParcelas}`:r._t==='pix'?r.tipoPix:r.tipoEntrada;
+    const pc=r._t==='cartao'?`<div class="fcheck ${r.pago?'on':''}" onclick="togglePago('${r.id}')">✓</div>`:'—';
     return`<tr>
       <td style="color:var(--muted)">${r.data||'—'}</td><td>${tipo}</td>
       <td>${r.descricao}</td><td>${r.categoria||'—'}</td>
@@ -1170,7 +1252,7 @@ function renderResumo(){
     const bC=c=>cM.filter(r=>r.cartao===c).reduce((a,r)=>a+r.valorParcela,0);
     return`<tr>
       <td><b style="cursor:pointer;color:var(--blue)" onclick="mesIdx=${MESES.indexOf(mes)};document.getElementById('mesLabel').textContent=getMes();goto('fechamento')">${mes}</b></td>
-      ${CARTOES.map(c=>'<td class="'+String(bC(c)?'nr':''||'')+'">'+String(bC(c)?fmtS(bC(c)):'—'||'')+'</td>').join('')}
+      ${CARTOES.map(c=>`<td class="${bC(c)?'nr':''}">${bC(c)?fmtS(bC(c)):'—'}</td>`).join('')}
       <td class="nr money">${tC?fmt(tC):'—'}</td>
       <td class="np">${tT?fmt(tT):'—'}</td>
       <td class="nb money">${tP?fmt(tP):'—'}</td>
@@ -1284,8 +1366,6 @@ function salvarVconf(){
 // MODAIS / FORMS
 // ══════════════════════════════════════
 function openModal(t){
-  // Fechar sidebar no mobile antes de abrir modal
-  if(window.innerWidth<=768) document.getElementById('sb').classList.remove('mo');
   fillSel('mc-m',MESES);fillSel('mp-m',MESES);fillSel('me-m',MESES);
   const mc=document.getElementById('mc-c'),mp=document.getElementById('mp-c'),mk=document.getElementById('mc-k');
   if(mc&&mc.options.length<=1){CATEGORIAS.forEach(c=>{[mc,mp].forEach(s=>{const o=document.createElement('option');o.value=o.textContent=c;s?.appendChild(o)});})}
@@ -1294,7 +1374,7 @@ function openModal(t){
   const de=document.getElementById('me-dt');if(de&&!de.value)de.value=today();
   document.getElementById('modal-'+t).classList.add('open');
 }
-function closeModal(t){const el=document.getElementById('modal-'+t);if(el)el.classList.remove('open');}
+function closeModal(t){document.getElementById('modal-'+t).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 
 function setTipo(t){
@@ -1311,7 +1391,7 @@ function calcPrev(){
   if(!d||!v||!p||!k||!m){box.style.display='none';return;}
   const vp=v/p,mi=MESES.indexOf(m),mf=MESES[Math.min(mi+p-1,MESES.length-1)];
   box.style.display='block';
-  box.innerHTML='<b>'+String(d.toUpperCase()||'')+'</b> — '+String(k||'')+' <span class="tag '+String(tipoC==='TERCEIRO'?'tp':'tm'||'')+'">'+String(tipoC||'')+'</span><br>'+String(p||'')+'x de <b>'+String(fmt(vp)||'')+'</b> = <b style="color:var(--red)">'+String(fmt(v)||'')+'</b><br><span style="color:var(--muted)">'+String(m||'')+' → '+String(mf||'')+'</span>'+String(tipoC==='TERCEIRO'?'<br><span style="color:var(--purple);font-size:11px">💜 Você paga mas vai receber de volta</span>':''||'')+'';
+  box.innerHTML=`<b>${d.toUpperCase()}</b> — ${k} <span class="tag ${tipoC==='TERCEIRO'?'tp':'tm'}">${tipoC}</span><br>${p}x de <b>${fmt(vp)}</b> = <b style="color:var(--red)">${fmt(v)}</b><br><span style="color:var(--muted)">${m} → ${mf}</span>${tipoC==='TERCEIRO'?'<br><span style="color:var(--purple);font-size:11px">💜 Você paga mas vai receber de volta</span>':''}`;
 }
 
 function salvarCartao(){
@@ -1324,7 +1404,7 @@ function salvarCartao(){
     if(mi+i>=MESES.length)break;
     DB.cartao.push({id:uid(),descricao:d,categoria:c,cartao:k,tipo:tipoC,valorTotal:v,totalParcelas:p,parcelaAtual:i+1,valorParcela:vp,mes:MESES[mi+i],pago:false,reembolsado:false,data:today(),criadoEm:Date.now()});
   }
-  saveDB();closeModal('cartao');toast(''+String(p||'')+'x '+String(k||'')+' ('+String(tipoC||'')+') lançado!');
+  saveDB();closeModal('cartao');toast(`${p}x ${k} (${tipoC}) lançado!`);
   ['mc-d','mc-v'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('mc-p').value='';document.getElementById('mc-prev').style.display='none';
   renderPage(getActivePage());
@@ -1375,14 +1455,14 @@ function togglePago(id){
 function pagarGrupo(cart,pagar){
   const mes=getMes();
   DB.cartao.filter(r=>r.cartao===cart&&r.mes===mes).forEach(r=>{r.pago=pagar;if(pagar)r.dataPagamento=today();});
-  saveDB();renderFechamento();toast(pagar?''+String(cart||'')+' pago!':''+String(cart||'')+' desmarcado.');
+  saveDB();renderFechamento();toast(pagar?`${cart} pago!`:`${cart} desmarcado.`);
 }
 function pagarTodos(){
   const mes=getMes(),falta=DB.cartao.filter(r=>r.mes===mes&&!r.pago);
   if(!falta.length){toast('Já está tudo pago!');return;}
-  if(!confirm('Marcar '+String(falta.length||'')+' parcelas como pagas?'))return;
+  if(!confirm(`Marcar ${falta.length} parcelas como pagas?`))return;
   falta.forEach(r=>{r.pago=true;r.dataPagamento=today();});
-  saveDB();renderFechamento();toast(''+String(falta.length||'')+' parcelas pagas!');
+  saveDB();renderFechamento();toast(`${falta.length} parcelas pagas!`);
 }
 function deletar(tipo,id){
   if(!confirm('Apagar este lançamento?'))return;
@@ -1418,13 +1498,11 @@ function importData(e){
       }
       if(!d.saldoInicial)d.saldoInicial={data:'2026-01-01',valor:0};
       DB={...DB,...d};
-      _saveDB(); // salvar local primeiro
+      saveDB();
       document.getElementById('mesLabel').textContent=getMes();
       renderPage(getActivePage());
       const tot=(d.cartao?.length||0)+(d.pix?.length||0)+(d.entrada?.length||0);
-      toast('Importado! '+tot+' registros. Enviando ao Firebase...');
-      // Enviar ao Firebase após render
-      setTimeout(fbPush, 500);
+      toast('Importado! '+tot+' registros carregados.');
     }catch(err){
       console.error('Import error:',err);
       toast('Erro: '+err.message,'err');
@@ -1520,16 +1598,16 @@ function renderProjecao(){
   document.getElementById('entradasProg').innerHTML=ep.length?ep.map(r=>`
     <div class="proj-entry">
       <select style="background:transparent;border:none;color:var(--muted);font-size:11px;font-family:var(--font);width:110px;outline:none" onchange="updateEntProg('${r.id}','mes',this.value)">
-        ${MESES.map(m=>'<option value="'+String(m||'')+'" '+String(m===r.mes?'selected':''||'')+'>'+String(m||'')+'</option>').join('')}
+        ${MESES.map(m=>`<option value="${m}" ${m===r.mes?'selected':''}>${m}</option>`).join('')}
       </select>
       <select style="background:transparent;border:none;color:var(--muted);font-size:11px;font-family:var(--font);width:120px;outline:none" onchange="updateEntProg('${r.id}','tipo',this.value)">
-        ${['SALÁRIO','EXTRA','RENDIMENTO','TRANSFERÊNCIA','OUTROS'].map(t=>'<option '+String(t===r.tipo?'selected':''||'')+'>'+String(t||'')+'</option>').join('')}
+        ${['SALÁRIO','EXTRA','RENDIMENTO','TRANSFERÊNCIA','OUTROS'].map(t=>`<option ${t===r.tipo?'selected':''}>${t}</option>`).join('')}
       </select>
       <input placeholder="Descrição..." value="${r.descricao}" style="flex:1" oninput="updateEntProg('${r.id}','descricao',this.value)">
       <input type="number" placeholder="Valor" value="${r.valor||''}" style="width:110px;text-align:right" oninput="updateEntProg('${r.id}','valor',this.value)">
       <button class="btn-icon btn-sm" onclick="removeEntProg('${r.id}')">🗑️</button>
     </div>`).join('')
-  :'<div style="font-size:12px;color:var(--muted2);padding:8px 0">Nenhuma entrada programada. Clique em "+ Adicionar" para incluir salários futuros.</div>';
+  :`<div style="font-size:12px;color:var(--muted2);padding:8px 0">Nenhuma entrada programada. Clique em "+ Adicionar" para incluir salários futuros.</div>`;
 
   // Projeção parte do saldo REAL de hoje
   const saldoHoje=calcSaldoAtual();
@@ -1596,7 +1674,7 @@ function renderProjecao(){
       <div style="font-family:var(--font);font-weight:700;font-size:13px">Saldo Acumulado Projetado</div>
       <div style="display:flex;gap:16px;font-size:11px">
         <span><span style="color:var(--green)">●</span> Pico positivo: <b style="color:var(--green)">${lastPos?fmt(lastPos.saldoAcum):'—'}</b></span>
-        ${lastNeg?'<span><span style="color:var(--red)">●</span> Pico negativo: <b style="color:var(--red)">'+String(fmt(lastNeg.saldoAcum)||'')+'</b></span>':''}
+        ${lastNeg?`<span><span style="color:var(--red)">●</span> Pico negativo: <b style="color:var(--red)">${fmt(lastNeg.saldoAcum)}</b></span>`:''}
       </div>
     </div>
     <div style="display:flex;align-items:flex-end;gap:2px;height:56px">
@@ -1669,110 +1747,6 @@ function renderProjecao(){
 // VENCIMENTOS MELHORADO — com status fatura
 // ══════════════════════════════════════
 
-
-
-// ══════════════════════════════════════
-// FIREBASE REALTIME DATABASE
-// Tempo real — atualiza em todos os dispositivos instantaneamente
-// ══════════════════════════════════════
-const FB_URL = 'https://gestao-financeira-2a7a1-default-rtdb.firebaseio.com';
-const FB_PATH = FB_URL + '/dados.json';
-let fbListener = null;
-let fbLastPush = 0;
-let fbPushTimer = null;
-
-function setSyncStatus(state, msg){
-  const dot=document.getElementById('syncDot');
-  const txt=document.getElementById('syncTxt');
-  if(!dot||!txt)return;
-  txt.textContent=msg;
-  const colors={ok:'var(--green)',err:'var(--red)',sync:'var(--yellow)',idle:'var(--muted)'};
-  dot.style.background=colors[state]||colors.idle;
-  dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
-}
-
-// SALVAR no Firebase
-async function fbPush(){
-  try{
-    setSyncStatus('sync','Salvando...');
-    const res=await fetch(FB_PATH,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(DB)
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    setSyncStatus('ok','Salvo ✓');
-  }catch(e){
-    setSyncStatus('err','Erro ao salvar');
-    console.error('fbPush:',e);
-  }
-}
-
-// CARREGAR do Firebase
-async function fbLoad(){
-  try{
-    setSyncStatus('sync','Carregando...');
-    const res=await fetch(FB_PATH);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    if(data && typeof data==='object' && (data.cartao||data.pix||data.entrada)){
-      DB=data;
-      if(!DB.cartao)DB.cartao=[];
-      if(!DB.pix)DB.pix=[];
-      if(!DB.entrada)DB.entrada=[];
-      if(!DB.entradasProg)DB.entradasProg=[];
-      if(!DB.venc)DB.venc={};
-      if(!DB.saldoInicial)DB.saldoInicial={data:today(),valor:0};
-      _saveDB();
-      renderPage(getActivePage());
-    }
-    setSyncStatus('ok','Sincronizado ✓');
-  }catch(e){
-    setSyncStatus('err','Offline');
-    console.warn('fbLoad:',e);
-  }
-}
-
-// POLLING — verifica atualizações a cada 5 segundos
-function startPolling(){
-  setInterval(async()=>{
-    try{
-      const res=await fetch(FB_PATH);
-      if(!res.ok)return;
-      const data=await res.json();
-      if(!data||typeof data!=='object')return;
-      // Comparar com DB local — se diferente, atualizar
-      const remoteStr=JSON.stringify(data);
-      const localStr=JSON.stringify(DB);
-      if(remoteStr!==localStr){
-        DB=data;
-        if(!DB.cartao)DB.cartao=[];
-        if(!DB.pix)DB.pix=[];
-        if(!DB.entrada)DB.entrada=[];
-        if(!DB.entradasProg)DB.entradasProg=[];
-        if(!DB.venc)DB.venc={};
-        if(!DB.saldoInicial)DB.saldoInicial={data:today(),valor:0};
-        _saveDB();
-        setSyncStatus('ok','Atualizado ✓');
-        renderPage(getActivePage());
-      }
-    }catch(e){}
-  }, 5000);
-}
-
-// Override saveDB para salvar no Firebase automaticamente
-const _saveDB=saveDB;
-saveDB=function(){
-  _saveDB();
-  clearTimeout(fbPushTimer);
-  fbPushTimer=setTimeout(fbPush, 1500);
-};
-
-// Botão manual de sync no sidebar
-function syncManual(){
-  fbLoad();
-}
-
 // ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
@@ -1791,57 +1765,83 @@ if('Notification' in window && Notification.permission==='default'){
 setTimeout(checkVencimentos, 1000);
 // Checar a cada hora
 setInterval(checkVencimentos, 3600000);
-// Sync ao abrir
-
 
 // ══════════════════════════════════════
-// SYNC GITHUB — token salvo só no localStorage
+// FIREBASE — sync em tempo real
 // ══════════════════════════════════════
-var GH_USER = 'tecesaumendes-source';
-var GH_REPO = 'gestao_financeira.html';
-var GH_FILE = 'dados.json';
-var GH_API = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
+var FB_PATH='https://gestao-financeira-2a7a1-default-rtdb.firebaseio.com/dados.json';
+var fbPushTimer=null;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-function mergeDB(local,remote){
-  local =(local &&typeof local ==='object')?local :{};
-  remote=(remote&&typeof remote==='object')?remote:{};
-  function mergeArr(a,b){
-    a=Array.isArray(a)?a:[];b=Array.isArray(b)?b:[];
-    const map={};
-    [...a,...b].forEach(r=>{
-      if(!r||!r.id)return;
-      if(!map[r.id]||(r.criadoEm||0)>(map[r.id].criadoEm||0))map[r.id]=r;
-    });
-    return Object.values(map);
-  }
-  return {
-    cartao:       mergeArr(local.cartao,       remote.cartao),
-    pix:          mergeArr(local.pix,          remote.pix),
-    entrada:      mergeArr(local.entrada,      remote.entrada),
-    entradasProg: mergeArr(local.entradasProg, remote.entradasProg),
-    venc:         Object.assign({},remote.venc||{},local.venc||{}),
-    saldoInicial: local.saldoInicial||remote.saldoInicial||{data:'2026-04-25',valor:0},
-  };
+function setSyncStatus(state,msg){
+  var dot=document.getElementById('syncDot');
+  var txt=document.getElementById('syncTxt');
+  if(!dot||!txt)return;
+  txt.textContent=msg;
+  var colors={ok:'var(--green)',err:'var(--red)',sync:'var(--yellow)',idle:'var(--muted)'};
+  dot.style.background=colors[state]||colors.idle;
+  dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
 }
 
-// [auto-sync já configurado acima]
+async function fbPush(){
+  try{
+    setSyncStatus('sync','Salvando...');
+    var res=await fetch(FB_PATH,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    setSyncStatus('ok','Salvo ✓');
+  }catch(e){setSyncStatus('err','Erro ao salvar');console.error('fbPush:',e);}
+}
 
+async function fbLoad(){
+  try{
+    setSyncStatus('sync','Carregando...');
+    var res=await fetch(FB_PATH);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var data=await res.json();
+    if(data&&typeof data==='object'&&(data.cartao||data.pix||data.entrada)){
+      DB=data;
+      if(!DB.cartao)DB.cartao=[];
+      if(!DB.pix)DB.pix=[];
+      if(!DB.entrada)DB.entrada=[];
+      if(!DB.entradasProg)DB.entradasProg=[];
+      if(!DB.venc)DB.venc={};
+      if(!DB.saldoInicial)DB.saldoInicial={data:today(),valor:0};
+      saveDB();
+      renderPage(getActivePage());
+    }
+    setSyncStatus('ok','Sincronizado ✓');
+  }catch(e){setSyncStatus('err','Offline');console.warn('fbLoad:',e);}
+}
 
+// Auto-save no Firebase após cada alteração
+var _origSaveDB=saveDB;
+saveDB=function(){
+  _origSaveDB();
+  clearTimeout(fbPushTimer);
+  fbPushTimer=setTimeout(fbPush,1500);
+};
 
+// Polling a cada 5s para sincronizar entre dispositivos
+setInterval(async function(){
+  try{
+    var res=await fetch(FB_PATH);
+    if(!res.ok)return;
+    var data=await res.json();
+    if(!data||typeof data!=='object')return;
+    if(JSON.stringify(data)!==JSON.stringify(DB)){
+      DB=data;
+      if(!DB.cartao)DB.cartao=[];
+      if(!DB.pix)DB.pix=[];
+      if(!DB.entrada)DB.entrada=[];
+      if(!DB.entradasProg)DB.entradasProg=[];
+      _origSaveDB();
+      setSyncStatus('ok','Atualizado ✓');
+      renderPage(getActivePage());
+    }
+  }catch(e){}
+},5000);
 
+// Carregar ao abrir
+fbLoad();
 </script>
 </body>
 </html>
