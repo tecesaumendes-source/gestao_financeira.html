@@ -289,8 +289,7 @@ select option{background:var(--s2)}
     <div class="nav-item" onclick="goto('ajuda')"><span class="ni">❓</span><span class="nl">Como usar</span></div>
   </nav>
   <div class="sidebar-bot">
-    <div class="nav-item" onclick="syncGitHub()" id="nav-sync"><span class="ni">🔄</span><span class="nl">Sincronizar</span></div>
-    <div class="nav-item" onclick="configToken()" style="font-size:11px"><span class="ni">🔑</span><span class="nl">Config. Token</span></div>
+    <div class="nav-item" onclick="fbLoad()"><span class="ni">🔄</span><span class="nl">Sincronizar</span></div>
     <div class="nav-item" onclick="exportData()"><span class="ni">💾</span><span class="nl">Exportar JSON</span></div>
     <div class="nav-item" onclick="document.getElementById('impFile').click()"><span class="ni">📂</span><span class="nl">Importar JSON</span></div>
     <input type="file" id="impFile" accept=".json" style="display:none" onchange="importData(event)">
@@ -307,7 +306,7 @@ select option{background:var(--s2)}
       <span class="mes-label" id="mesLabel">—</span>
       <button class="mes-arrow" onclick="navMes(1)">›</button>
     </div>
-    <div id="syncStatus" style="font-size:11px;font-family:var(--font);color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="syncGitHub()" title="Clique para sincronizar">
+    <div id="syncStatus" style="font-size:11px;font-family:var(--font);color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap">
       <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>
       <span id="syncTxt">—</span>
     </div>
@@ -318,16 +317,6 @@ select option{background:var(--s2)}
   <div class="content active fade" id="page-fechamento">
     <!-- Saldo banco widget -->
     <div class="banco-widget" id="bancoWidget"></div>
-    <!-- Token inline (mobile fallback) -->
-    <div id="tokenInline" style="display:none;background:var(--s2);border:1px solid var(--purple);border-radius:var(--r);padding:14px 16px;margin-bottom:14px">
-      <div style="font-family:var(--font);font-weight:700;font-size:13px;color:var(--purple);margin-bottom:10px">🔑 Configure o Token do GitHub</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="password" id="tokenInlineInput" placeholder="ghp_..." style="flex:1;min-width:200px" autocomplete="off">
-        <button class="btn btn-green btn-sm" onclick="salvarTokenInline()">Salvar</button>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tokenInline').style.display='none'">✕</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:8px">Token salvo apenas neste navegador. Nunca vai para nenhum servidor.</div>
-    </div>
     <!-- KPIs -->
     <div class="kpi-grid" id="fKpis"></div>
     <!-- Barra -->
@@ -442,48 +431,7 @@ select option{background:var(--s2)}
 </div></div>
 
 <!-- MODAIS -->
-<!-- TOKEN CONFIG -->
-<div class="overlay" id="modal-token">
-<div class="modal">
-  <button class="mclose" onclick="closeModal('token')">✕</button>
-  <h3>🔑 Token do GitHub</h3>
-  <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
-    O token fica salvo <b>apenas no seu navegador</b> (localStorage).<br>
-    Nunca é enviado para nenhum servidor além do GitHub.
-  </p>
-  <div class="fg">
-    <div class="field s2">
-      <label>Personal Access Token (ghp_...)</label>
-      <input type="password" id="tk-input" placeholder="ghp_..." autocomplete="off">
-    </div>
-    <div class="field s2" id="tk-status" style="font-size:11px;color:var(--muted)"></div>
-  </div>
-  <div class="ff">
-    <button class="btn btn-ghost" onclick="limparToken()" style="color:var(--red)">🗑️ Remover</button>
-    <button class="btn btn-ghost" onclick="closeModal('token')">Cancelar</button>
-    <button class="btn btn-green" onclick="salvarToken()">Salvar</button>
-  </div>
-</div></div>
-
-
-<!-- SALDO INICIAL -->
-<div class="overlay" id="modal-saldo">
-<div class="modal">
-  <button class="mclose" onclick="closeModal('saldo')">✕</button>
-  <h3>🏦 Saldo Inicial do Banco</h3>
-  <p style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.6">
-    Digite o saldo que você tinha no banco em uma data de referência.<br>
-    O sistema vai somar entradas e subtrair gastos a partir daí.
-  </p>
-  <div class="fg">
-    <div class="field"><label>Data de referência</label><input type="date" id="si-data"></div>
-    <div class="field"><label>Saldo nessa data (R$)</label><input type="number" id="si-val" step="0.01" placeholder="Ex: 3200.00"></div>
-  </div>
-  <div class="ff">
-    <button class="btn btn-ghost" onclick="closeModal('saldo')">Cancelar</button>
-    <button class="btn btn-green" onclick="salvarSaldoInicial()">Salvar</button>
-  </div>
-</div></div>
+<!-- MODAIS -->
 
 <!-- CARTÃO -->
 <div class="overlay" id="modal-cartao">
@@ -980,90 +928,6 @@ function renderFechamento(){
       <div class="banco-saldo-lbl">🏦 Saldo Atual no Banco</div>
       <div class="banco-saldo-val ${saldoReal>=0?'pos':'neg'}">${fmt(saldoReal)}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px">Entradas e pagamentos com data ≤ hoje</div>
-      <div id="tokenSavoInfo" style="font-size:10px;margin-top:4px"></div>
-    </div>
-    <div class="banco-divider"></div>
-    <div class="banco-breakdown">
-      <div class="banco-item">
-        <div class="banco-item-lbl">Saldo Inicial</div>
-        <div class="banco-item-val ng">${fmt(DB.saldoInicial.valor)}</div>
-        <div style="font-size:10px;color:var(--muted)">${DB.saldoInicial.data||'—'}</div>
-      </div>
-      <div class="banco-item">
-        <div class="banco-item-lbl">💜 A Receber</div>
-        <div class="banco-item-val np">${fmt(aReceber)}</div>
-        <div style="font-size:10px;color:var(--muted)">de terceiros</div>
-      </div>
-      <div class="banco-item">
-        <div class="banco-item-lbl">Saldo + Reembolsos</div>
-        <div class="banco-item-val" style="color:var(--teal)">${fmt(saldoReal+aReceber)}</div>
-        <div style="font-size:10px;color:var(--muted)">se todos pagarem</div>
-      </div>
-      <div class="banco-item">
-        <div class="banco-item-lbl">Ainda Pagar ${mes}</div>
-        <div class="banco-item-val nr">${fmt(pendCart)}</div>
-        <div style="font-size:10px;color:${saldoReal>=pendCart?'var(--green)':'var(--red)'}">${saldoReal>=pendCart?'✅ Banco cobre':'⚠️ Insuficiente'}</div>
-      </div>
-    </div>
-    <button class="btn-edit-saldo" onclick="openModal('saldo')">⚙️ Atualizar saldo inicial</button>
-    <button class="btn-edit-saldo" onclick="mostrarInputToken()" id="btnToken" style="border-color:var(--purple);color:var(--purple)">🔑 Token GitHub</button>
-  `;
-
-  // KPIs
-  document.getElementById('fKpis').innerHTML=`
-    <div class="kpi green"><div class="kpi-lbl">💰 Entradas</div><div class="kpi-val">${fmt(totEnt)}</div><div class="kpi-sub">${eMes.length} lançamentos</div></div>
-    <div class="kpi red"><div class="kpi-lbl">💳 Meu (cartão)</div><div class="kpi-val">${fmt(totMeu)}</div><div class="kpi-sub">${cMes.filter(r=>r.tipo==='MEU').length} parcelas</div></div>
-    <div class="kpi purple"><div class="kpi-lbl">👥 Terceiro (paguei)</div><div class="kpi-val">${fmt(totTerc)}</div><div class="kpi-sub">${cMes.filter(r=>r.tipo==='TERCEIRO').length} parcelas</div></div>
-    <div class="kpi blue"><div class="kpi-lbl">📱 PIX / Débito</div><div class="kpi-val">${fmt(totPix)}</div><div class="kpi-sub">${pMes.length} lançamentos</div></div>
-    <div class="kpi ${saldoMes>=0?'green':'red'}"><div class="kpi-lbl">📊 Saldo do Mês</div><div class="kpi-val">${fmt(saldoMes)}</div><div class="kpi-sub">Entradas − meus gastos</div></div>
-    <div class="kpi yellow"><div class="kpi-lbl">⏳ Falta Pagar</div><div class="kpi-val">${fmt(pendCart)}</div><div class="kpi-sub">${cMes.filter(r=>!r.pago).length} parcelas</div></div>
-  `;
-
-  // BARRA
-  const maxV=Math.max(totEnt,totMeu+totPix,1);
-  const pctG=Math.min(100,Math.round((totMeu+totPix)/maxV*100));
-  document.getElementById('saldoBar').innerHTML=`
-    <div class="sbar-top">
-      <div class="sbar-title">Entradas vs Gastos — ${mes}</div>
-      <div class="sbar-val ${saldoMes>=0?'ng':'nr'}">${saldoMes>=0?'+':''}${fmt(saldoMes)}</div>
-    </div>
-    <div class="ptrack"><div class="pfill" style="width:${pctG}%;background:${saldoMes>=0?'var(--green)':'var(--red)'}"></div></div>
-    <div class="sbar-legs">
-      <div class="sleg"><span class="dot" style="background:var(--green)"></span>Entradas: <b>${fmt(totEnt)}</b></div>
-      <div class="sleg"><span class="dot" style="background:var(--red)"></span>Meu: <b>${fmt(totMeu)}</b></div>
-      <div class="sleg"><span class="dot" style="background:var(--purple)"></span>Terceiro: <b>${fmt(totTerc)}</b></div>
-      <div class="sleg"><span class="dot" style="background:var(--blue)"></span>PIX: <b>${fmt(totPix)}</b></div>
-    </div>
-  `;
-
-  // TERCEIROS DESTE MÊS (widget rápido)
-  const tercMes=cMes.filter(r=>r.tipo==='TERCEIRO');
-  const tercWidget=document.getElementById('tercWidget');
-  if(tercMes.length){
-    const pendTerc=tercMes.filter(r=>!r.reembolsado).reduce((a,r)=>a+r.valorParcela,0);
-    tercWidget.innerHTML=`
-    <div class="terc-widget">
-      <div class="terc-header">
-        <div class="terc-title">👥 Terceiros — paguei mas vou receber de volta em ${mes}</div>
-        <div class="terc-total">${fmt(pendTerc)} pendente</div>
-      </div>
-      <div class="terc-list">
-        ${tercMes.map(r=>`
-          <div class="terc-item">
-            <div class="terc-item-info">
-              <div class="terc-item-nome">${r.descricao} <span style="color:var(--muted);font-size:10px">${r.cartao}</span></div>
-              <div class="terc-item-det">${r.parcelaAtual}/${r.totalParcelas} · ${r.categoria||''}</div>
-            </div>
-            <div class="terc-item-val ${r.reembolsado?'recebido':''}">${fmt(r.valorParcela)}</div>
-            <button class="btn-receber ${r.reembolsado?'recebido':''}" onclick="abrirReembolso('${r.id}')">
-              ${r.reembolsado?'✅ Recebido':'💜 Registrar recebimento'}
-            </button>
-          </div>`).join('')}
-      </div>
-    </div>`;
-  } else {
-    tercWidget.innerHTML='';
-  }
 
   // LABELS
   document.getElementById('totCartLbl').textContent=fmt(totCart);
@@ -1116,12 +980,6 @@ function renderFechamento(){
     :`<tr><td colspan="6"><div class="empty"><div class="empty-i">✅</div><p>Tudo pago em ${mes}!</p></div></td></tr>`;
 
   // Mostrar status do token
-  const tkInfo = document.getElementById('tokenSavoInfo');
-  if(tkInfo){
-    const tk = getToken();
-    tkInfo.textContent = tk ? '🔑 Token: '+tk.slice(0,8)+'...' : '⚠️ Sem token — clique em 🔑 Token GitHub';
-    tkInfo.style.color = tk ? 'var(--green)' : 'var(--yellow)';
-  }
 }
 
 function renderCartoesGrupo(cMes){
@@ -1796,6 +1654,109 @@ function renderProjecao(){
 // ══════════════════════════════════════
 
 
+
+// ══════════════════════════════════════
+// FIREBASE REALTIME DATABASE
+// Tempo real — atualiza em todos os dispositivos instantaneamente
+// ══════════════════════════════════════
+const FB_URL = 'https://gestao-financeira-2a7a1-default-rtdb.firebaseio.com';
+const FB_PATH = FB_URL + '/dados.json';
+let fbListener = null;
+let fbLastPush = 0;
+let fbPushTimer = null;
+
+function setSyncStatus(state, msg){
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncTxt');
+  if(!dot||!txt)return;
+  txt.textContent=msg;
+  const colors={ok:'var(--green)',err:'var(--red)',sync:'var(--yellow)',idle:'var(--muted)'};
+  dot.style.background=colors[state]||colors.idle;
+  dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
+}
+
+// SALVAR no Firebase
+async function fbPush(){
+  try{
+    setSyncStatus('sync','Salvando...');
+    const res=await fetch(FB_PATH,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(DB)
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    setSyncStatus('ok','Salvo ✓');
+  }catch(e){
+    setSyncStatus('err','Erro ao salvar');
+    console.error('fbPush:',e);
+  }
+}
+
+// CARREGAR do Firebase
+async function fbLoad(){
+  try{
+    setSyncStatus('sync','Carregando...');
+    const res=await fetch(FB_PATH);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data && typeof data==='object' && (data.cartao||data.pix||data.entrada)){
+      DB=data;
+      if(!DB.cartao)DB.cartao=[];
+      if(!DB.pix)DB.pix=[];
+      if(!DB.entrada)DB.entrada=[];
+      if(!DB.entradasProg)DB.entradasProg=[];
+      if(!DB.venc)DB.venc={};
+      if(!DB.saldoInicial)DB.saldoInicial={data:today(),valor:0};
+      _saveDB();
+      renderPage(getActivePage());
+    }
+    setSyncStatus('ok','Sincronizado ✓');
+  }catch(e){
+    setSyncStatus('err','Offline');
+    console.warn('fbLoad:',e);
+  }
+}
+
+// POLLING — verifica atualizações a cada 5 segundos
+function startPolling(){
+  setInterval(async()=>{
+    try{
+      const res=await fetch(FB_PATH);
+      if(!res.ok)return;
+      const data=await res.json();
+      if(!data||typeof data!=='object')return;
+      // Comparar com DB local — se diferente, atualizar
+      const remoteStr=JSON.stringify(data);
+      const localStr=JSON.stringify(DB);
+      if(remoteStr!==localStr){
+        DB=data;
+        if(!DB.cartao)DB.cartao=[];
+        if(!DB.pix)DB.pix=[];
+        if(!DB.entrada)DB.entrada=[];
+        if(!DB.entradasProg)DB.entradasProg=[];
+        if(!DB.venc)DB.venc={};
+        if(!DB.saldoInicial)DB.saldoInicial={data:today(),valor:0};
+        _saveDB();
+        setSyncStatus('ok','Atualizado ✓');
+        renderPage(getActivePage());
+      }
+    }catch(e){}
+  }, 5000);
+}
+
+// Override saveDB para salvar no Firebase automaticamente
+const _saveDB=saveDB;
+saveDB=function(){
+  _saveDB();
+  clearTimeout(fbPushTimer);
+  fbPushTimer=setTimeout(fbPush, 1500);
+};
+
+// Botão manual de sync no sidebar
+function syncManual(){
+  fbLoad();
+}
+
 // ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
@@ -1815,32 +1776,7 @@ setTimeout(checkVencimentos, 1000);
 // Checar a cada hora
 setInterval(checkVencimentos, 3600000);
 // Sync ao abrir
-// Mostrar campo de token se não configurado
-setTimeout(function(){
-  if(!getToken()){
-    const d=document.getElementById('tokenInline');
-    if(d) d.style.display='block';
-    setSyncStatus('idle','Configure o token abaixo ↓');
-  }
-}, 500);
 
-syncOnLoad();
-
-function mostrarInputToken(){
-  const d=document.getElementById('tokenInline');
-  if(d){d.style.display='block';document.getElementById('tokenInlineInput').focus();}
-}
-
-function salvarTokenInline(){
-  const v=document.getElementById('tokenInlineInput').value.trim();
-  if(!v){toast('Digite o token','err');return;}
-  if(!v.startsWith('ghp_')&&!v.startsWith('github_pat_')){toast('Token inválido','err');return;}
-  localStorage.setItem('gh_token',v);
-  document.getElementById('tokenInline').style.display='none';
-  document.getElementById('tokenInlineInput').value='';
-  toast('Token salvo! Sincronizando...');
-  syncOnLoad();
-}
 
 // ══════════════════════════════════════
 // SYNC GITHUB — token salvo só no localStorage
@@ -1850,9 +1786,6 @@ var GH_REPO = 'gestao_financeira.html';
 var GH_FILE = 'dados.json';
 var GH_API = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
 
-function getToken(){ return localStorage.getItem('gh_token')||''; }
-function getSHA(){   return localStorage.getItem('gh_sha')||null; }
-function setSHA(s){  localStorage.setItem('gh_sha',s); }
 
 function setSyncStatus(state,msg){
   const dot=document.getElementById('syncDot');
@@ -1864,100 +1797,15 @@ function setSyncStatus(state,msg){
   dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
 }
 
-function configToken(){
-  if(window.innerWidth<=768) document.getElementById('sb').classList.remove('mo');
-  const tk=getToken();
-  const el=document.getElementById('tk-input');
-  if(el) el.value=tk?'••••••••••••••••••••':'';
-  const st=document.getElementById('tk-status');
-  if(st) st.textContent=tk?'✅ Token configurado':'⚠️ Nenhum token — sincronização desativada';
-  // Abre direto sem passar pelo openModal genérico
-  document.getElementById('modal-token').classList.add('open');
-}
 
-function salvarToken(){
-  const v=document.getElementById('tk-input').value.trim();
-  if(!v||v.startsWith('•')){ closeModal('token'); return; }
-  if(!v.startsWith('ghp_')&&!v.startsWith('github_pat_')){
-    toast('Token inválido — deve começar com ghp_','err'); return;
-  }
-  localStorage.setItem('gh_token',v);
-  closeModal('token');
-  toast('Token salvo! Sincronizando...');
-  syncGitHub();
-}
 
-function limparToken(){
-  if(!confirm('Remover token? A sincronização será desativada.'))return;
-  localStorage.removeItem('gh_token');
-  localStorage.removeItem('gh_sha');
-  closeModal('token');
-  setSyncStatus('idle','Sem token');
-  toast('Token removido.');
-}
 
-async function syncGitHub(){
-  const token=getToken();
-  if(!token){setSyncStatus('idle','Sem token');configToken();return;}
-  setSyncStatus('sync','Sincronizando...');
-  try{
-    const res=await fetch(GH_API,{
-      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json','X-Requested-With':'XMLHttpRequest'},mode:'cors',credentials:'omit'
-    });
 
-    if(res.status===401||res.status===403){
-      setSyncStatus('err','Token inválido');
-      toast('Token inválido. Configure um novo.','err');
-      configToken();return;
-    }
-    if(res.status===404){
-      // Arquivo não existe ainda — criar
-      await ghPush(token,null);
-    } else if(res.ok){
-      // Verificar se resposta é JSON antes de parsear
-      const ct=res.headers.get('content-type')||'';
-      if(!ct.includes('json')){
-        const txt=await res.text();
-        throw new Error('Resposta não é JSON: '+txt.slice(0,80));
-      }
-      const meta=await res.json();
-      if(!meta.content){throw new Error('Arquivo vazio ou inválido no GitHub');}
-      setSHA(meta.sha);
-      const remoteStr=atob(meta.content.replace(/[\n\r]/g,''));
-      const remoteDB=JSON.parse(remoteStr);
-      DB=mergeDB(DB,remoteDB);
-      _saveDB();
-      await ghPush(token,meta.sha);
-    } else {
-      const txt=await res.text();
-      throw new Error('HTTP '+res.status+': '+txt.slice(0,100));
-    }
-    setSyncStatus('ok','Sincronizado ✓');
-    toast('Sincronizado!');
-    renderPage(getActivePage());
-  }catch(e){
-    console.error('Sync:',e);
-    setSyncStatus('err','Erro');
-    toast('Erro: '+e.message,'err');
-  }
-}
 
-async function ghPush(token,sha){
-  const content=btoa(unescape(encodeURIComponent(JSON.stringify(DB,null,2))));
-  const body={message:'sync: '+new Date().toISOString().slice(0,16),content};
-  if(sha) body.sha=sha;
-  const res=await fetch(GH_API,{
-    method:'PUT',
-    headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
-    body:JSON.stringify(body)
-  });
-  if(!res.ok){
-    const e=await res.json();
-    throw new Error(e.message||'Push falhou');
-  }
-  const data=await res.json();
-  setSHA(data.content.sha);
-}
+
+
+
+
 
 function mergeDB(local,remote){
   local =(local &&typeof local ==='object')?local :{};
@@ -1986,65 +1834,11 @@ const _saveDB=saveDB;
 let _syncTimer=null;
 saveDB=function(){
   _saveDB();
-  if(!getToken())return;
-  clearTimeout(_syncTimer);
-  setSyncStatus('sync','Salvando...');
-  _syncTimer=setTimeout(syncGitHub,3000);
+  clearTimeout(fbPushTimer);
+  fbPushTimer=setTimeout(fbPush,1500);
 };
 
-async function syncOnLoad(){
-  const token=getToken();
-  if(!token){setSyncStatus('idle','Configure o token →');return;}
-  setSyncStatus('sync','Carregando...');
-  try{
-    const res=await fetch(GH_API,{
-      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json','X-Requested-With':'XMLHttpRequest'},mode:'cors',credentials:'omit'
-    });
-    const status=res.status;
-    const ct=res.headers.get('content-type')||'';
-    const txt=await res.text();
-    console.log('syncOnLoad status:',status,'ct:',ct,'body:',txt.slice(0,200));
 
-    if(status===401||status===403){setSyncStatus('err','Token inválido ('+status+')');return;}
-    if(status===404){
-      try{await ghPush(token,null);setSyncStatus('ok','Criado ✓');}
-      catch(e2){setSyncStatus('err','Erro push: '+e2.message);}
-      return;
-    }
-    if(!res.ok){setSyncStatus('err','HTTP '+status);return;}
-    // Verificar se é JSON válido antes de parsear
-    let meta;
-    try{
-      meta=JSON.parse(txt);
-    }catch(je){
-      setSyncStatus('err','Arquivo inválido');
-      console.error('JSON parse erro:',je,'body:',txt.slice(0,100));
-      // Se o arquivo está corrompido, recriar do zero com dados locais
-      toast('Arquivo remoto inválido — recriando...','err');
-      try{await ghPush(getToken(),null);}catch(e2){}
-      setSyncStatus('ok','Recriado ✓');
-      return;
-    }
-    if(!meta||!meta.content){setSyncStatus('ok','Pronto');return;}
-    setSHA(meta.sha);
-    let remoteDB={};
-    try{
-      const remoteStr=atob(meta.content.replace(/[\n\r]/g,''));
-      remoteDB=JSON.parse(remoteStr);
-    }catch(de){
-      console.warn('Decode erro:',de);
-      remoteDB={};
-    }
-    DB=mergeDB(DB,remoteDB);
-    _saveDB();
-    setSyncStatus('ok','Sincronizado ✓');
-    renderPage(getActivePage());
-  }catch(e){
-    setSyncStatus('err',e.message.slice(0,30));
-    console.error('syncOnLoad err:',e);
-    toast('Sync erro: '+e.message,'err');
-  }
-}
 
 
 </script>
