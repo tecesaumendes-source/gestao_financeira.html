@@ -1853,11 +1853,7 @@ function limparToken(){
 
 async function syncGitHub(){
   const token=getToken();
-  if(!token){
-    setSyncStatus('idle','Sem token');
-    configToken();
-    return;
-  }
+  if(!token){setSyncStatus('idle','Sem token');configToken();return;}
   setSyncStatus('sync','Sincronizando...');
   try{
     const res=await fetch(GH_API,{
@@ -1866,32 +1862,38 @@ async function syncGitHub(){
 
     if(res.status===401||res.status===403){
       setSyncStatus('err','Token inválido');
-      toast('Token inválido ou expirado. Configure um novo.','err');
-      configToken();
-      return;
+      toast('Token inválido. Configure um novo.','err');
+      configToken();return;
     }
-
     if(res.status===404){
+      // Arquivo não existe ainda — criar
       await ghPush(token,null);
     } else if(res.ok){
+      // Verificar se resposta é JSON antes de parsear
+      const ct=res.headers.get('content-type')||'';
+      if(!ct.includes('json')){
+        const txt=await res.text();
+        throw new Error('Resposta não é JSON: '+txt.slice(0,80));
+      }
       const meta=await res.json();
+      if(!meta.content){throw new Error('Arquivo vazio ou inválido no GitHub');}
       setSHA(meta.sha);
-      const remoteStr=atob(meta.content.replace(/\n/g,''));
+      const remoteStr=atob(meta.content.replace(/[\n\r]/g,''));
       const remoteDB=JSON.parse(remoteStr);
       DB=mergeDB(DB,remoteDB);
       _saveDB();
       await ghPush(token,meta.sha);
     } else {
-      throw new Error('HTTP '+res.status);
+      const txt=await res.text();
+      throw new Error('HTTP '+res.status+': '+txt.slice(0,100));
     }
-
     setSyncStatus('ok','Sincronizado ✓');
     toast('Sincronizado!');
     renderPage(getActivePage());
-  } catch(e){
+  }catch(e){
     console.error('Sync:',e);
     setSyncStatus('err','Erro');
-    toast('Erro ao sincronizar: '+e.message,'err');
+    toast('Erro: '+e.message,'err');
   }
 }
 
@@ -1943,34 +1945,39 @@ saveDB=function(){
 
 async function syncOnLoad(){
   const token=getToken();
-  if(!token){
-    setSyncStatus('idle','Configure o token →');
-    return;
-  }
+  if(!token){setSyncStatus('idle','Configure o token →');return;}
   setSyncStatus('sync','Carregando...');
   try{
     const res=await fetch(GH_API,{
       headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
     });
-    if(res.ok){
-      const meta=await res.json();
-      setSHA(meta.sha);
-      const remoteStr=atob(meta.content.replace(/\n/g,''));
-      const remoteDB=JSON.parse(remoteStr);
-      DB=mergeDB(DB,remoteDB);
-      _saveDB();
-      setSyncStatus('ok','Sincronizado ✓');
-      renderPage(getActivePage());
-    } else if(res.status===404){
-      // Primeira vez — push dados locais
-      await ghPush(token,null);
-      setSyncStatus('ok','Sincronizado ✓');
-    } else if(res.status===401||res.status===403){
-      setSyncStatus('err','Token inválido');
-    } else {
-      setSyncStatus('err','Offline');
+    if(res.status===401||res.status===403){
+      setSyncStatus('err','Token inválido');return;
     }
-  } catch(e){
+    if(res.status===404){
+      await ghPush(token,null);
+      setSyncStatus('ok','Pronto');return;
+    }
+    if(!res.ok){
+      setSyncStatus('err','Offline');return;
+    }
+    const ct=res.headers.get('content-type')||'';
+    if(!ct.includes('json')){
+      setSyncStatus('err','Offline');
+      console.warn('syncOnLoad: resposta não é JSON');return;
+    }
+    const meta=await res.json();
+    if(!meta||!meta.content){
+      setSyncStatus('ok','Pronto');return;
+    }
+    setSHA(meta.sha);
+    const remoteStr=atob(meta.content.replace(/[\n\r]/g,''));
+    const remoteDB=JSON.parse(remoteStr);
+    DB=mergeDB(DB,remoteDB);
+    _saveDB();
+    setSyncStatus('ok','Sincronizado ✓');
+    renderPage(getActivePage());
+  }catch(e){
     setSyncStatus('err','Offline');
     console.warn('syncOnLoad:',e);
   }
