@@ -1404,11 +1404,13 @@ function importData(e){
       }
       if(!d.saldoInicial)d.saldoInicial={data:'2026-01-01',valor:0};
       DB={...DB,...d};
-      saveDB();
+      _saveDB(); // salvar local primeiro
       document.getElementById('mesLabel').textContent=getMes();
       renderPage(getActivePage());
       const tot=(d.cartao?.length||0)+(d.pix?.length||0)+(d.entrada?.length||0);
-      toast('Importado! '+tot+' registros carregados.');
+      toast('Importado! '+tot+' registros. Enviando ao Firebase...');
+      // Enviar ao Firebase após render
+      setTimeout(fbPush, 500);
     }catch(err){
       console.error('Import error:',err);
       toast('Erro: '+err.message,'err');
