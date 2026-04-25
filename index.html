@@ -980,6 +980,7 @@ function renderFechamento(){
       <div class="banco-saldo-lbl">🏦 Saldo Atual no Banco</div>
       <div class="banco-saldo-val ${saldoReal>=0?'pos':'neg'}">${fmt(saldoReal)}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px">Entradas e pagamentos com data ≤ hoje</div>
+      <div id="tokenSavoInfo" style="font-size:10px;margin-top:4px"></div>
     </div>
     <div class="banco-divider"></div>
     <div class="banco-breakdown">
@@ -1113,6 +1114,14 @@ function renderFechamento(){
         <td><div class="fcheck" onclick="togglePago('${r.id}')">✓</div></td>
       </tr>`).join('')+avisoSaldo
     :`<tr><td colspan="6"><div class="empty"><div class="empty-i">✅</div><p>Tudo pago em ${mes}!</p></div></td></tr>`;
+
+  // Mostrar status do token
+  const tkInfo = document.getElementById('tokenSavoInfo');
+  if(tkInfo){
+    const tk = getToken();
+    tkInfo.textContent = tk ? '🔑 Token: '+tk.slice(0,8)+'...' : '⚠️ Sem token — clique em 🔑 Token GitHub';
+    tkInfo.style.color = tk ? 'var(--green)' : 'var(--yellow)';
+  }
 }
 
 function renderCartoesGrupo(cMes){
@@ -1839,7 +1848,7 @@ function salvarTokenInline(){
 var GH_USER = 'tecesaumendes-source';
 var GH_REPO = 'gestao_financeira.html';
 var GH_FILE = 'dados.json';
-var GH_API  = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
+var GH_API = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
 
 function getToken(){ return localStorage.getItem('gh_token')||''; }
 function getSHA(){   return localStorage.getItem('gh_sha')||null; }
@@ -1893,7 +1902,7 @@ async function syncGitHub(){
   setSyncStatus('sync','Sincronizando...');
   try{
     const res=await fetch(GH_API,{
-      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json','X-Requested-With':'XMLHttpRequest'},mode:'cors',credentials:'omit'
     });
 
     if(res.status===401||res.status===403){
@@ -1985,7 +1994,7 @@ async function syncOnLoad(){
   setSyncStatus('sync','Carregando...');
   try{
     const res=await fetch(GH_API,{
-      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json','X-Requested-With':'XMLHttpRequest'},mode:'cors',credentials:'omit'
     });
     const status=res.status;
     const ct=res.headers.get('content-type')||'';
