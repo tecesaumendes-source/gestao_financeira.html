@@ -1777,12 +1777,33 @@ function renderProjecao(){
 
 
 // ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+document.getElementById('mesLabel').textContent=getMes();
+document.getElementById('si-data').value=today();
+renderFechamento();
+fillSel('fhMes',MESES,true);
+fillSel('fcMes',MESES,true);
+// Pedir permissão de notificação
+if('Notification' in window && Notification.permission==='default'){
+  setTimeout(()=>{
+    Notification.requestPermission();
+  }, 2000);
+}
+// Checar vencimentos ao iniciar
+setTimeout(checkVencimentos, 1000);
+// Checar a cada hora
+setInterval(checkVencimentos, 3600000);
+// Sync ao abrir
+syncOnLoad();
+
+// ══════════════════════════════════════
 // SYNC GITHUB — token salvo só no localStorage
 // ══════════════════════════════════════
-const GH_USER = 'tecesaumendes-source';
-const GH_REPO = 'gestao_financeira.html';
-const GH_FILE = 'dados.json';
-const GH_API  = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
+var GH_USER = 'tecesaumendes-source';
+var GH_REPO = 'gestao_financeira.html';
+var GH_FILE = 'dados.json';
+var GH_API  = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
 
 function getToken(){ return localStorage.getItem('gh_token')||''; }
 function getSHA(){   return localStorage.getItem('gh_sha')||null; }
@@ -1955,26 +1976,7 @@ async function syncOnLoad(){
   }
 }
 
-// ══════════════════════════════════════
-// INIT
-// ══════════════════════════════════════
-document.getElementById('mesLabel').textContent=getMes();
-document.getElementById('si-data').value=today();
-renderFechamento();
-fillSel('fhMes',MESES,true);
-fillSel('fcMes',MESES,true);
-// Pedir permissão de notificação
-if('Notification' in window && Notification.permission==='default'){
-  setTimeout(()=>{
-    Notification.requestPermission();
-  }, 2000);
-}
-// Checar vencimentos ao iniciar
-setTimeout(checkVencimentos, 1000);
-// Checar a cada hora
-setInterval(checkVencimentos, 3600000);
-// Sync ao abrir
-syncOnLoad();
+
 </script>
 </body>
 </html>
