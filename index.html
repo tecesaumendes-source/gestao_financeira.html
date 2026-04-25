@@ -1960,20 +1960,24 @@ async function ghPush(token,sha){
 }
 
 function mergeDB(local,remote){
+  local =(local &&typeof local ==='object')?local :{};
+  remote=(remote&&typeof remote==='object')?remote:{};
   function mergeArr(a,b){
+    a=Array.isArray(a)?a:[];b=Array.isArray(b)?b:[];
     const map={};
-    [...(a||[]),...(b||[])].forEach(r=>{
-      if(!map[r.id]||(r.criadoEm||0)>(map[r.id].criadoEm||0)) map[r.id]=r;
+    [...a,...b].forEach(r=>{
+      if(!r||!r.id)return;
+      if(!map[r.id]||(r.criadoEm||0)>(map[r.id].criadoEm||0))map[r.id]=r;
     });
     return Object.values(map);
   }
   return {
-    cartao:   mergeArr(local.cartao,  remote.cartao),
-    pix:      mergeArr(local.pix,     remote.pix),
-    entrada:  mergeArr(local.entrada, remote.entrada),
-    venc:     Object.assign({},remote.venc||{},local.venc||{}),
-    saldoInicial: local.saldoInicial||remote.saldoInicial||{data:'2026-01-01',valor:0},
-    entradasProg: mergeArr(local.entradasProg,remote.entradasProg),
+    cartao:       mergeArr(local.cartao,       remote.cartao),
+    pix:          mergeArr(local.pix,          remote.pix),
+    entrada:      mergeArr(local.entrada,      remote.entrada),
+    entradasProg: mergeArr(local.entradasProg, remote.entradasProg),
+    venc:         Object.assign({},remote.venc||{},local.venc||{}),
+    saldoInicial: local.saldoInicial||remote.saldoInicial||{data:'2026-04-25',valor:0},
   };
 }
 
@@ -2008,16 +2012,29 @@ async function syncOnLoad(){
       return;
     }
     if(!res.ok){setSyncStatus('err','HTTP '+status);return;}
-    if(!ct.includes('json')&&!txt.startsWith('{')){
-      setSyncStatus('err','Não é JSON ('+status+')');
-      toast('Resposta inválida do GitHub: '+txt.slice(0,60),'err');
+    // Verificar se é JSON válido antes de parsear
+    let meta;
+    try{
+      meta=JSON.parse(txt);
+    }catch(je){
+      setSyncStatus('err','Arquivo inválido');
+      console.error('JSON parse erro:',je,'body:',txt.slice(0,100));
+      // Se o arquivo está corrompido, recriar do zero com dados locais
+      toast('Arquivo remoto inválido — recriando...','err');
+      try{await ghPush(getToken(),null);}catch(e2){}
+      setSyncStatus('ok','Recriado ✓');
       return;
     }
-    const meta=JSON.parse(txt);
     if(!meta||!meta.content){setSyncStatus('ok','Pronto');return;}
     setSHA(meta.sha);
-    const remoteStr=atob(meta.content.replace(/[\n\r]/g,''));
-    const remoteDB=JSON.parse(remoteStr);
+    let remoteDB={};
+    try{
+      const remoteStr=atob(meta.content.replace(/[\n\r]/g,''));
+      remoteDB=JSON.parse(remoteStr);
+    }catch(de){
+      console.warn('Decode erro:',de);
+      remoteDB={};
+    }
     DB=mergeDB(DB,remoteDB);
     _saveDB();
     setSyncStatus('ok','Sincronizado ✓');
