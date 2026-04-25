@@ -250,6 +250,7 @@ select option{background:var(--s2)}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 @media(max-width:768px){
+  .modal{padding:18px;border-radius:14px;margin:8px;width:calc(100% - 16px);}
   .sidebar{position:fixed;left:-220px;top:0;bottom:0;z-index:100;transition:left .25s}
   .sidebar.mo{left:0}
   .fech-grid{grid-template-columns:1fr}
@@ -1401,7 +1402,7 @@ function openModal(t){
   const de=document.getElementById('me-dt');if(de&&!de.value)de.value=today();
   document.getElementById('modal-'+t).classList.add('open');
 }
-function closeModal(t){document.getElementById('modal-'+t).classList.remove('open');}
+function closeModal(t){const el=document.getElementById('modal-'+t);if(el)el.classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 
 function setTipo(t){
@@ -1804,7 +1805,8 @@ function configToken(){
   if(el) el.value=tk?'••••••••••••••••••••':'';
   const st=document.getElementById('tk-status');
   if(st) st.textContent=tk?'✅ Token configurado':'⚠️ Nenhum token — sincronização desativada';
-  openModal('token');
+  // Abre direto sem passar pelo openModal genérico
+  document.getElementById('modal-token').classList.add('open');
 }
 
 function salvarToken(){
