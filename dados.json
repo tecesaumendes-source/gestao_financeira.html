@@ -4322,6 +4322,15 @@
       "mes": "ABR-26",
       "data": "2026-04-25",
       "criadoEm": 1777131638259
+    },
+    {
+      "id": "moem8mzig5awuaxj8zc",
+      "descricao": "1",
+      "tipoEntrada": "SALÁRIO",
+      "valor": 1,
+      "mes": "ABR-26",
+      "data": "2026-04-25",
+      "criadoEm": 1777138267230
     }
   ],
   "entradasProg": [
