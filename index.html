@@ -938,22 +938,26 @@ function renderFechamento(){
   renderCartoesGrupo(cMes);
 
   // ENTRADAS
-  document.getElementById('fEntradas').innerHTML=eMes.length?eMes.map(r=>`
-    <div class="fech-row">
-      <div class="fech-name">${r.descricao}<br><span style="font-size:10px;color:var(--muted)">${r.tipoEntrada||''} · ${r.data||''}</span></div>
-      <div class="fech-val ng money">${fmt(r.valor)}</div>
-      <button class="btn-icon btn-sm" onclick="deletar('entrada','${r.id}')">🗑️</button>
-    </div>`)
-    .join(''):`<div class="empty"><div class="empty-i">🏦</div><p>Nenhuma entrada</p></div>`;
+  document.getElementById('fEntradas').innerHTML=eMes.length?eMes.map(function(r){
+    var tipo=r.tipoEntrada||'';
+    var dt=r.data||'';
+    return '<div class="fech-row">'+
+      '<div class="fech-name">'+r.descricao+'<br><span style="font-size:10px;color:var(--muted)">'+tipo+' · '+dt+'</span></div>'+
+      '<div class="fech-val ng money">'+fmt(r.valor)+'</div>'+
+      '<button class="btn-icon btn-sm" onclick="deletar(\'entrada\',\''+r.id+'\')">🗑️</button>'+
+    '</div>';
+  }).join(''):'<div class="empty"><div class="empty-i">🏦</div><p>Nenhuma entrada</p></div>';
 
   // PIX
-  document.getElementById('fPix').innerHTML=pMes.length?pMes.map(r=>`
-    <div class="fech-row">
-      <div class="fech-name">${r.descricao}<br><span style="font-size:10px;color:var(--muted)">${r.tipoPix||''} · ${r.categoria||''}</span></div>
-      <div class="fech-val nr money">${fmt(r.valor)}</div>
-      <button class="btn-icon btn-sm" onclick="deletar('pix','${r.id}')">🗑️</button>
-    </div>`)
-    .join(''):`<div class="empty"><div class="empty-i">📱</div><p>Nenhum PIX</p></div>`;
+  document.getElementById('fPix').innerHTML=pMes.length?pMes.map(function(r){
+    var tp=r.tipoPix||'';
+    var cat=r.categoria||'';
+    return '<div class="fech-row">'+
+      '<div class="fech-name">'+r.descricao+'<br><span style="font-size:10px;color:var(--muted)">'+tp+' · '+cat+'</span></div>'+
+      '<div class="fech-val nr money">'+fmt(r.valor)+'</div>'+
+      '<button class="btn-icon btn-sm" onclick="deletar(\'pix\',\''+r.id+'\')">🗑️</button>'+
+    '</div>';
+  }).join(''):'<div class="empty"><div class="empty-i">📱</div><p>Nenhum PIX</p></div>';
 
   // FALTA PAGAR
   const falta=cMes.filter(r=>!r.pago);
@@ -961,11 +965,14 @@ function renderFechamento(){
   document.getElementById('faltaLbl').textContent=totFalta?fmt(totFalta):'✅ Tudo pago!';
   document.getElementById('faltaLbl').style.color=totFalta?'var(--red)':'var(--green)';
 
-  const avisoSaldo=totFalta>0?(
-    saldoReal>=totFalta
-      ?`<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--green)">✅ Saldo no banco (${fmt(saldoReal)}) é suficiente para cobrir tudo</td></tr>`
-      :`<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--red)">⚠️ Saldo disponível: ${fmt(Math.max(0,saldoReal))} — faltam ${fmt(Math.max(0,totFalta-saldoReal))} no banco</td></tr>`
-  ):'';
+  var avisoSaldo='';
+  if(totFalta>0){
+    if(saldoReal>=totFalta){
+      avisoSaldo='<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--green)">✅ Saldo no banco ('+fmt(saldoReal)+') suficiente para cobrir tudo</td></tr>';
+    } else {
+      avisoSaldo='<tr><td colspan="6" style="text-align:center;padding:8px;font-size:11px;color:var(--red)">⚠️ Saldo disponível: '+fmt(Math.max(0,saldoReal))+' — faltam '+fmt(Math.max(0,totFalta-saldoReal))+' no banco</td></tr>';
+    }
+  }
 
   document.getElementById('tFalta').innerHTML=falta.length
     ?falta.sort((a,b)=>CARTOES.indexOf(a.cartao)-CARTOES.indexOf(b.cartao)).map(r=>`
@@ -1789,15 +1796,7 @@ var GH_FILE = 'dados.json';
 var GH_API = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
 
 
-function setSyncStatus(state,msg){
-  const dot=document.getElementById('syncDot');
-  const txt=document.getElementById('syncTxt');
-  if(!dot||!txt)return;
-  txt.textContent=msg;
-  const colors={ok:'var(--green)',err:'var(--red)',sync:'var(--yellow)',idle:'var(--muted)'};
-  dot.style.background=colors[state]||colors.idle;
-  dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
-}
+
 
 
 
@@ -1831,14 +1830,7 @@ function mergeDB(local,remote){
   };
 }
 
-// Auto-sync com debounce após cada saveDB
-const _saveDB=saveDB;
-let _syncTimer=null;
-saveDB=function(){
-  _saveDB();
-  clearTimeout(fbPushTimer);
-  fbPushTimer=setTimeout(fbPush,1500);
-};
+// [auto-sync já configurado acima]
 
 
 
