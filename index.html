@@ -20,7 +20,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--m
 .app{display:flex;height:100vh;overflow:hidden}
 
 /* SIDEBAR */
-.sidebar{width:220px;min-width:220px;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width .25s;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width .25s;overflow:hidden;z-index:50}
 .sidebar.collapsed{width:64px;min-width:64px}
 .logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden}
 .logo-icon{font-size:22px;min-width:26px;text-align:center}
@@ -165,9 +165,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
 .btn-icon:hover{color:var(--text)}
 
 /* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);padding:16px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(4px);padding:16px}
 .overlay.open{display:flex}
-.modal{background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;position:relative}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;position:relative;z-index:2001}
 .modal h3{font-family:var(--font);font-weight:700;font-size:16px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
 .mclose{position:absolute;top:13px;right:13px;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:4px 8px;cursor:pointer;color:var(--muted);font-size:14px;line-height:1}
 .mclose:hover{color:var(--text)}
@@ -1391,6 +1391,8 @@ function salvarVconf(){
 // MODAIS / FORMS
 // ══════════════════════════════════════
 function openModal(t){
+  // Fechar sidebar no mobile antes de abrir modal
+  if(window.innerWidth<=768) document.getElementById('sb').classList.remove('mo');
   fillSel('mc-m',MESES);fillSel('mp-m',MESES);fillSel('me-m',MESES);
   const mc=document.getElementById('mc-c'),mp=document.getElementById('mp-c'),mk=document.getElementById('mc-k');
   if(mc&&mc.options.length<=1){CATEGORIAS.forEach(c=>{[mc,mp].forEach(s=>{const o=document.createElement('option');o.value=o.textContent=c;s?.appendChild(o)});})}
@@ -1796,6 +1798,7 @@ function setSyncStatus(state,msg){
 }
 
 function configToken(){
+  if(window.innerWidth<=768) document.getElementById('sb').classList.remove('mo');
   const tk=getToken();
   const el=document.getElementById('tk-input');
   if(el) el.value=tk?'••••••••••••••••••••':'';
