@@ -288,6 +288,8 @@ select option{background:var(--s2)}
     <div class="nav-item" onclick="goto('ajuda')"><span class="ni">❓</span><span class="nl">Como usar</span></div>
   </nav>
   <div class="sidebar-bot">
+    <div class="nav-item" onclick="syncGitHub()" id="nav-sync"><span class="ni">🔄</span><span class="nl">Sincronizar</span></div>
+    <div class="nav-item" onclick="configToken()" style="font-size:11px"><span class="ni">🔑</span><span class="nl">Config. Token</span></div>
     <div class="nav-item" onclick="exportData()"><span class="ni">💾</span><span class="nl">Exportar JSON</span></div>
     <div class="nav-item" onclick="document.getElementById('impFile').click()"><span class="ni">📂</span><span class="nl">Importar JSON</span></div>
     <input type="file" id="impFile" accept=".json" style="display:none" onchange="importData(event)">
@@ -303,6 +305,10 @@ select option{background:var(--s2)}
       <button class="mes-arrow" onclick="navMes(-1)">‹</button>
       <span class="mes-label" id="mesLabel">—</span>
       <button class="mes-arrow" onclick="navMes(1)">›</button>
+    </div>
+    <div id="syncStatus" style="font-size:11px;font-family:var(--font);color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="syncGitHub()" title="Clique para sincronizar">
+      <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>
+      <span id="syncTxt">—</span>
     </div>
     <button class="btn btn-red btn-sm" onclick="openModal('cartao')">+ Lançar</button>
   </div>
@@ -425,6 +431,30 @@ select option{background:var(--s2)}
 </div></div>
 
 <!-- MODAIS -->
+<!-- TOKEN CONFIG -->
+<div class="overlay" id="modal-token">
+<div class="modal">
+  <button class="mclose" onclick="closeModal('token')">✕</button>
+  <h3>🔑 Token do GitHub</h3>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+    O token fica salvo <b>apenas no seu navegador</b> (localStorage).<br>
+    Nunca é enviado para nenhum servidor além do GitHub.
+  </p>
+  <div class="fg">
+    <div class="field s2">
+      <label>Personal Access Token (ghp_...)</label>
+      <input type="password" id="tk-input" placeholder="ghp_..." autocomplete="off">
+    </div>
+    <div class="field s2" id="tk-status" style="font-size:11px;color:var(--muted)"></div>
+  </div>
+  <div class="ff">
+    <button class="btn btn-ghost" onclick="limparToken()" style="color:var(--red)">🗑️ Remover</button>
+    <button class="btn btn-ghost" onclick="closeModal('token')">Cancelar</button>
+    <button class="btn btn-green" onclick="salvarToken()">Salvar</button>
+  </div>
+</div></div>
+
+
 <!-- SALDO INICIAL -->
 <div class="overlay" id="modal-saldo">
 <div class="modal">
@@ -1742,6 +1772,184 @@ function renderProjecao(){
 // VENCIMENTOS MELHORADO — com status fatura
 // ══════════════════════════════════════
 
+
+// ══════════════════════════════════════
+// SYNC GITHUB — token salvo só no localStorage
+// ══════════════════════════════════════
+const GH_USER = 'tecesaumendes-source';
+const GH_REPO = 'gestao_financeira.html';
+const GH_FILE = 'dados.json';
+const GH_API  = 'https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
+
+function getToken(){ return localStorage.getItem('gh_token')||''; }
+function getSHA(){   return localStorage.getItem('gh_sha')||null; }
+function setSHA(s){  localStorage.setItem('gh_sha',s); }
+
+function setSyncStatus(state,msg){
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncTxt');
+  if(!dot||!txt)return;
+  txt.textContent=msg;
+  const colors={ok:'var(--green)',err:'var(--red)',sync:'var(--yellow)',idle:'var(--muted)'};
+  dot.style.background=colors[state]||colors.idle;
+  dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
+}
+
+function configToken(){
+  const tk=getToken();
+  const el=document.getElementById('tk-input');
+  if(el) el.value=tk?'••••••••••••••••••••':'';
+  const st=document.getElementById('tk-status');
+  if(st) st.textContent=tk?'✅ Token configurado':'⚠️ Nenhum token — sincronização desativada';
+  openModal('token');
+}
+
+function salvarToken(){
+  const v=document.getElementById('tk-input').value.trim();
+  if(!v||v.startsWith('•')){ closeModal('token'); return; }
+  if(!v.startsWith('ghp_')&&!v.startsWith('github_pat_')){
+    toast('Token inválido — deve começar com ghp_','err'); return;
+  }
+  localStorage.setItem('gh_token',v);
+  closeModal('token');
+  toast('Token salvo! Sincronizando...');
+  syncGitHub();
+}
+
+function limparToken(){
+  if(!confirm('Remover token? A sincronização será desativada.'))return;
+  localStorage.removeItem('gh_token');
+  localStorage.removeItem('gh_sha');
+  closeModal('token');
+  setSyncStatus('idle','Sem token');
+  toast('Token removido.');
+}
+
+async function syncGitHub(){
+  const token=getToken();
+  if(!token){
+    setSyncStatus('idle','Sem token');
+    configToken();
+    return;
+  }
+  setSyncStatus('sync','Sincronizando...');
+  try{
+    const res=await fetch(GH_API,{
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+    });
+
+    if(res.status===401||res.status===403){
+      setSyncStatus('err','Token inválido');
+      toast('Token inválido ou expirado. Configure um novo.','err');
+      configToken();
+      return;
+    }
+
+    if(res.status===404){
+      await ghPush(token,null);
+    } else if(res.ok){
+      const meta=await res.json();
+      setSHA(meta.sha);
+      const remoteStr=atob(meta.content.replace(/\n/g,''));
+      const remoteDB=JSON.parse(remoteStr);
+      DB=mergeDB(DB,remoteDB);
+      _saveDB();
+      await ghPush(token,meta.sha);
+    } else {
+      throw new Error('HTTP '+res.status);
+    }
+
+    setSyncStatus('ok','Sincronizado ✓');
+    toast('Sincronizado!');
+    renderPage(getActivePage());
+  } catch(e){
+    console.error('Sync:',e);
+    setSyncStatus('err','Erro');
+    toast('Erro ao sincronizar: '+e.message,'err');
+  }
+}
+
+async function ghPush(token,sha){
+  const content=btoa(unescape(encodeURIComponent(JSON.stringify(DB,null,2))));
+  const body={message:'sync: '+new Date().toISOString().slice(0,16),content};
+  if(sha) body.sha=sha;
+  const res=await fetch(GH_API,{
+    method:'PUT',
+    headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok){
+    const e=await res.json();
+    throw new Error(e.message||'Push falhou');
+  }
+  const data=await res.json();
+  setSHA(data.content.sha);
+}
+
+function mergeDB(local,remote){
+  function mergeArr(a,b){
+    const map={};
+    [...(a||[]),...(b||[])].forEach(r=>{
+      if(!map[r.id]||(r.criadoEm||0)>(map[r.id].criadoEm||0)) map[r.id]=r;
+    });
+    return Object.values(map);
+  }
+  return {
+    cartao:   mergeArr(local.cartao,  remote.cartao),
+    pix:      mergeArr(local.pix,     remote.pix),
+    entrada:  mergeArr(local.entrada, remote.entrada),
+    venc:     Object.assign({},remote.venc||{},local.venc||{}),
+    saldoInicial: local.saldoInicial||remote.saldoInicial||{data:'2026-01-01',valor:0},
+    entradasProg: mergeArr(local.entradasProg,remote.entradasProg),
+  };
+}
+
+// Auto-sync com debounce após cada saveDB
+const _saveDB=saveDB;
+let _syncTimer=null;
+saveDB=function(){
+  _saveDB();
+  if(!getToken())return;
+  clearTimeout(_syncTimer);
+  setSyncStatus('sync','Salvando...');
+  _syncTimer=setTimeout(syncGitHub,3000);
+};
+
+async function syncOnLoad(){
+  const token=getToken();
+  if(!token){
+    setSyncStatus('idle','Configure o token →');
+    return;
+  }
+  setSyncStatus('sync','Carregando...');
+  try{
+    const res=await fetch(GH_API,{
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(res.ok){
+      const meta=await res.json();
+      setSHA(meta.sha);
+      const remoteStr=atob(meta.content.replace(/\n/g,''));
+      const remoteDB=JSON.parse(remoteStr);
+      DB=mergeDB(DB,remoteDB);
+      _saveDB();
+      setSyncStatus('ok','Sincronizado ✓');
+      renderPage(getActivePage());
+    } else if(res.status===404){
+      // Primeira vez — push dados locais
+      await ghPush(token,null);
+      setSyncStatus('ok','Sincronizado ✓');
+    } else if(res.status===401||res.status===403){
+      setSyncStatus('err','Token inválido');
+    } else {
+      setSyncStatus('err','Offline');
+    }
+  } catch(e){
+    setSyncStatus('err','Offline');
+    console.warn('syncOnLoad:',e);
+  }
+}
+
 // ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
@@ -1760,6 +1968,8 @@ if('Notification' in window && Notification.permission==='default'){
 setTimeout(checkVencimentos, 1000);
 // Checar a cada hora
 setInterval(checkVencimentos, 3600000);
+// Sync ao abrir
+syncOnLoad();
 </script>
 </body>
 </html>
