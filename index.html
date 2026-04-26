@@ -244,6 +244,25 @@ select option{background:var(--s2)}
 .money{font-family:var(--font);font-weight:600}
 .nr{color:var(--red)}.ng{color:var(--green)}.nb{color:var(--blue)}.ny{color:var(--yellow)}.np{color:var(--purple)}
 .fade{animation:fd .22s ease}
+.cv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+.cv{border-radius:14px;padding:18px;cursor:pointer;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;min-height:110px;display:flex;flex-direction:column;justify-content:space-between}
+.cv:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.cv.sel{box-shadow:0 0 0 3px rgba(255,255,255,.6),0 8px 24px rgba(0,0,0,.4)}
+.cv-chip{width:28px;height:20px;border-radius:3px;background:rgba(255,255,255,.25);margin-bottom:6px}
+.cv-name{font-family:var(--font);font-weight:700;font-size:14px;color:#fff}
+.cv-sub{font-size:10px;color:rgba(255,255,255,.65);margin-top:2px}
+.cv-val{font-family:var(--font);font-weight:800;font-size:15px;color:#fff;margin-top:6px}
+.cv-dot{width:7px;height:7px;border-radius:50%;position:absolute;top:12px;right:12px}
+.cv-shine{position:absolute;top:-40%;right:-20%;width:55%;height:180%;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.07) 50%,transparent 60%);pointer-events:none}
+.cv-detail{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px;display:none}
+.cv-detail.open{display:block}
+.cv-detail-hdr{padding:12px 16px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.cv-detail-title{font-family:var(--font);font-weight:700;font-size:13px}
+.cv-stats{display:flex;gap:16px;flex-wrap:wrap}
+.cv-stat{text-align:center}
+.cv-stat-val{font-family:var(--font);font-weight:700;font-size:13px}
+.cv-stat-lbl{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:var(--font)}
+
 @keyframes fd{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .empty{text-align:center;padding:32px 20px;color:var(--muted)}
 .empty-i{font-size:32px;margin-bottom:8px}
@@ -423,7 +442,21 @@ select option{background:var(--s2)}
       <div class="sec-t"><span>📅</span> Vencimentos</div>
       <button class="btn btn-ghost btn-sm" onclick="openModal('vconf')">⚙️ Configurar</button>
     </div>
-    <div class="venc-grid" id="vencGrid"></div>
+    <div class="cv-grid" id="cvGrid"></div>
+    <div class="cv-detail" id="cvDetail">
+      <div class="cv-detail-hdr">
+        <div class="cv-detail-title" id="cvDetailTitle">—</div>
+        <div class="cv-stats" id="cvDetailStats"></div>
+      </div>
+      <div class="tw" style="margin:0;border:none;border-radius:0">
+        <table><thead><tr>
+          <th>Descrição</th><th>Parcela</th><th>Valor</th><th>Tipo</th><th>Pago</th>
+        </tr></thead><tbody id="cvDetailBody"></tbody></table>
+      </div>
+    </div>
+    <div class="sec-hdr" style="margin-top:8px">
+      <div class="sec-t" style="font-size:12px;color:var(--muted)">Resumo geral de pendentes</div>
+    </div>
     <div class="tw"><table><thead><tr><th>Cartão</th><th>Dia</th><th>Próx. Vencimento</th><th>Pendente</th><th>Status</th></tr></thead><tbody id="tVenc"></tbody></table></div>
   </div>
 
@@ -801,6 +834,17 @@ function today(){return new Date().toISOString().slice(0,10);}
 const CARTOES=['NUBANK','ITAU','INTER','C6BANK','MERC PAGO','AMAZON','NET MOVEL','SEGURO','OUTROS'];
 const CATEGORIAS=['Alimentação','Transporte','Moradia','Saúde','Educação','Lazer','Vestuário','Assinaturas','Compras','Outros'];
 const MESES=['JAN-26','FEV-26','MAR-26','ABR-26','MAI-26','JUN-26','JUL-26','AGO-26','SET-26','OUT-26','NOV-26','DEZ-26','JAN-27','FEV-27','MAR-27','ABR-27','MAI-27','JUN-27','JUL-27','AGO-27','SET-27','OUT-27','NOV-27','DEZ-27'];
+const CGRADIENTS={
+  'NUBANK':    'linear-gradient(135deg,#820ad1,#a855f7)',
+  'ITAU':      'linear-gradient(135deg,#c0392b,#e74c3c)',
+  'INTER':     'linear-gradient(135deg,#e55300,#ff7043)',
+  'C6BANK':    'linear-gradient(135deg,#1a1a2e,#2d3561)',
+  'MERC PAGO': 'linear-gradient(135deg,#007cbf,#00b1ea)',
+  'AMAZON':    'linear-gradient(135deg,#131921,#e47911)',
+  'NET MOVEL': 'linear-gradient(135deg,#006644,#00c97a)',
+  'SEGURO':    'linear-gradient(135deg,#2d3436,#636e72)',
+  'OUTROS':    'linear-gradient(135deg,#4a4a5a,#6b6b80)'
+};
 const CCOL={NUBANK:'var(--purple)',ITAU:'#e55353',INTER:'var(--orange)',C6BANK:'var(--blue)','MERC PAGO':'var(--yellow)',AMAZON:'#ff9f43','NET MOVEL':'var(--green)',SEGURO:'#74b9ff',OUTROS:'var(--muted)'};
 const CATCOL=['var(--red)','var(--blue)','var(--green)','var(--yellow)','var(--purple)','var(--orange)','#74b9ff','#a29bfe','#fd79a8','var(--muted)'];
 
@@ -1296,71 +1340,133 @@ function renderCategorias(){
 // ══════════════════════════════════════
 function renderVencimentos(){
   const venc=DB.venc,hoje=new Date();
+  const m=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const mesAtual=m[hoje.getMonth()]+'-'+String(hoje.getFullYear()).slice(2);
   function pV(dia){const d=new Date(hoje.getFullYear(),hoje.getMonth(),dia);if(d<=hoje)d.setMonth(d.getMonth()+1);return d;}
   function dD(d){return Math.round((d-hoje)/86400000);}
 
-  // Mês atual no formato MAR-26
-  const m=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-  const mesAtualStr=m[hoje.getMonth()]+'-'+String(hoje.getFullYear()).slice(2);
-
   const cards=CARTOES.map(c=>{
-    const dia=venc[c]||10,prox=pV(dia),diff=dD(prox);
+    const dia=venc[c]||10, prox=pV(dia), diff=dD(prox);
     const pend=DB.cartao.filter(r=>r.cartao===c&&!r.pago).reduce((a,r)=>a+r.valorParcela,0);
-    const statusFatura=getStatusFatura(c,mesAtualStr); // null=sem fatura, 'pago'=tudo pago, 'pendente'=tem pendente
-
-    // Se fatura do mês atual toda paga → OK independente do dia
+    const fatMes=DB.cartao.filter(r=>r.cartao===c&&r.mes===mesAtual).reduce((a,r)=>a+r.valorParcela,0);
+    const sf=getStatusFatura(c,mesAtual);
     let status,cls;
-    if(statusFatura==='pago'){
-      status='✅ FATURA PAGA';cls='';
-    } else if(!pend){
-      status='✅ LIMPO';cls='';
-    } else if(diff<=3){
-      status='🔴 URGENTE';cls='urg';
-    } else if(diff<=7){
-      status='🟡 ATENÇÃO';cls='atc';
-    } else {
-      status='🟢 OK';cls='';
-    }
-
-    // % do ciclo (dias desde último vencimento até próximo)
-    const diasCiclo=30;
-    const diasRestantes=Math.max(0,diff);
-    const pctUsado=Math.round((diasCiclo-diasRestantes)/diasCiclo*100);
-
-    return{c,dia,prox,diff,pend,status,cls,pctUsado,statusFatura};
+    if(sf==='pago'){status='✅ PAGO';cls='';}
+    else if(!pend){status='✅ LIMPO';cls='';}
+    else if(diff<=3){status='🔴 URGENTE';cls='urg';}
+    else if(diff<=7){status='🟡 ATENÇÃO';cls='atc';}
+    else{status='🟢 OK';cls='';}
+    return{c,dia,prox,diff,pend,fatMes,status,cls,sf};
   });
 
-  document.getElementById('vencGrid').innerHTML=cards.map(v=>`
-    <div class="vc ${v.cls}" style="${v.statusFatura==='pago'?'border-color:var(--green);background:rgba(0,201,122,.03)':''}">
-      <div class="vc-name" style="display:flex;align-items:center;justify-content:space-between">
-        ${v.c}
-        ${v.statusFatura==='pago'?'<span style="font-size:10px;color:var(--green);font-family:var(--font)">✅ PAGA</span>':''}
+  // Cards visuais
+  document.getElementById('cvGrid').innerHTML=cards.map(v=>{
+    const dotColor=v.sf==='pago'?'#00c97a':v.diff<=3?'#e74560':v.diff<=7?'#ffca2c':'#00c97a';
+    const grad=CGRADIENTS[v.c]||CGRADIENTS['OUTROS'];
+    const statusTxt=v.sf==='pago'?'✅ Paga':v.pend?fmt(v.pend)+' pend.':'Limpo';
+    return `<div class="cv" style="background:${grad}" id="cv-${v.c.replace(/ /g,'-')}" onclick="abrirDetalheCV('${v.c}')">
+      <div class="cv-shine"></div>
+      <span class="cv-dot" style="background:${dotColor}"></span>
+      <div>
+        <div class="cv-chip"></div>
+        <div class="cv-name">${v.c}</div>
+        <div class="cv-sub">Vence dia ${v.dia} · ${v.diff}d</div>
       </div>
-      <div class="vc-info">Vence dia <b>${v.dia}</b></div>
-      <div class="vc-info">${v.prox.toLocaleDateString('pt-BR')} <span style="color:${v.diff<=3?'var(--red)':v.diff<=7?'var(--yellow)':'var(--muted)'}">(${v.diff}d)</span></div>
-      <div class="vc-status-bar">
-        <div class="vc-progress"><div class="vc-prog-fill" style="width:${v.pctUsado}%;background:${v.diff<=3?'var(--red)':v.diff<=7?'var(--yellow)':'var(--blue)'}"></div></div>
-        <span style="font-size:10px;color:var(--muted);white-space:nowrap">${v.diff}d</span>
+      <div>
+        <div class="cv-val">${v.fatMes?fmt(v.fatMes):'R$ 0,00'}</div>
+        <div class="cv-sub">${statusTxt}</div>
       </div>
-      <div class="vc-val ${v.pend?'nr':'ng'}">${fmt(v.pend)}</div>
-      <div style="margin-top:5px"><span class="tag ${v.cls==='urg'?'tr':v.cls==='atc'?'ty':'tg'}">${v.status}</span></div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
+  // Reabrir detalhe se estava aberto
+  const det=document.getElementById('cvDetail');
+  if(det&&det.dataset.cartao) abrirDetalheCV(det.dataset.cartao,true);
+
+  // Tabela resumo
   document.getElementById('tVenc').innerHTML=cards.map(v=>`
     <tr>
       <td><b>${v.c}</b></td>
       <td style="color:var(--muted)">Dia ${v.dia}</td>
       <td>${v.prox.toLocaleDateString('pt-BR')} <span style="color:var(--muted);font-size:11px">(${v.diff}d)</span></td>
       <td class="money ${v.pend?'nr':'ng'}">${fmt(v.pend)}</td>
-      <td><span class="tag ${v.statusFatura==='pago'?'tg':v.cls==='urg'?'tr':v.cls==='atc'?'ty':'tg'}">${v.status}</span></td>
+      <td><span class="tag ${v.sf==='pago'?'tg':v.cls==='urg'?'tr':v.cls==='atc'?'ty':'tg'}">${v.status}</span></td>
     </tr>`).join('');
 
-  document.getElementById('vconfForm').innerHTML=CARTOES.map(c=>`
-    <div class="field"><label>${c}</label><input type="number" id="vc-${c.replace(/\s/g,'-')}" min="1" max="31" value="${venc[c]||10}"></div>`).join('');
+  document.getElementById('vconfForm').innerHTML=CARTOES.map(c=>
+    `<div class="field"><label>${c}</label><input type="number" id="vc-${c.replace(/\s/g,'-')}" min="1" max="31" value="${venc[c]||10}"></div>`
+  ).join('');
 
-  // Verificar alertas após render
   checkVencimentos();
 }
+
+function abrirDetalheCV(cartao, reopen=false){
+  const mes=getMes();
+  const det=document.getElementById('cvDetail');
+
+  // Toggle ao clicar no mesmo cartão
+  if(!reopen && det.dataset.cartao===cartao && det.classList.contains('open')){
+    det.classList.remove('open');
+    det.dataset.cartao='';
+    document.querySelectorAll('.cv').forEach(c=>c.classList.remove('sel'));
+    return;
+  }
+
+  det.dataset.cartao=cartao;
+  det.classList.add('open');
+  document.querySelectorAll('.cv').forEach(c=>c.classList.remove('sel'));
+  const el=document.getElementById('cv-'+cartao.replace(/ /g,'-'));
+  if(el) el.classList.add('sel');
+
+  const parcelas=DB.cartao.filter(r=>r.cartao===cartao&&r.mes===mes);
+  const totMes=parcelas.reduce((a,r)=>a+r.valorParcela,0);
+  const pagas=parcelas.filter(r=>r.pago);
+  const pendentes=parcelas.filter(r=>!r.pago);
+
+  document.getElementById('cvDetailTitle').textContent=cartao+' — '+mes;
+  document.getElementById('cvDetailStats').innerHTML=
+    `<div class="cv-stat"><div class="cv-stat-val ng">${fmt(pagas.reduce((a,r)=>a+r.valorParcela,0))}</div><div class="cv-stat-lbl">Pago</div></div>`+
+    `<div class="cv-stat"><div class="cv-stat-val nr">${fmt(pendentes.reduce((a,r)=>a+r.valorParcela,0))}</div><div class="cv-stat-lbl">Pendente</div></div>`+
+    `<div class="cv-stat"><div class="cv-stat-val nb">${fmt(totMes)}</div><div class="cv-stat-lbl">Total Fatura</div></div>`+
+    `<div class="cv-stat"><div class="cv-stat-val">${parcelas.length}</div><div class="cv-stat-lbl">Parcelas</div></div>`;
+
+  if(!parcelas.length){
+    document.getElementById('cvDetailBody').innerHTML=
+      `<tr><td colspan="5"><div class="empty"><div class="empty-i">✅</div><p>Sem lançamentos em ${mes}</p></div></td></tr>`;
+    return;
+  }
+
+  // Usar DOM para evitar problema de aspas
+  const tbody=document.getElementById('cvDetailBody');
+  tbody.innerHTML='';
+  parcelas.forEach(r=>{
+    const tr=document.createElement('tr');
+    if(r.pago) tr.style.opacity='0.5';
+    const cells=[
+      r.descricao,
+      r.parcelaAtual+'/'+r.totalParcelas,
+      fmt(r.valorParcela),
+      r.tipo==='TERCEIRO'?'👥 TERC':'MEU',
+      ''
+    ];
+    cells.forEach((txt,i)=>{
+      const td=document.createElement('td');
+      if(i===2) td.className='money '+(r.pago?'ng':'nr');
+      if(i===3){const sp=document.createElement('span');sp.className='tag '+(r.tipo==='TERCEIRO'?'tp':'tm');sp.textContent=txt;td.appendChild(sp);}
+      else if(i===4){
+        const chk=document.createElement('div');
+        chk.className='fcheck'+(r.pago?' on':'');
+        chk.textContent='✓';
+        chk.addEventListener('click',(function(id){return function(){togglePago(id);renderVencimentos();};})(r.id));
+        td.appendChild(chk);
+      } else td.textContent=txt;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+
 function salvarVconf(){
   CARTOES.forEach(c=>{const v=parseInt(document.getElementById('vc-'+c.replace(/\s/g,'-'))?.value);if(v>=1&&v<=31)DB.venc[c]=v;});
   saveDB();closeModal('vconf');renderVencimentos();toast('Vencimentos salvos!');
