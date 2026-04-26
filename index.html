@@ -318,6 +318,7 @@ select option{background:var(--s2)}
     <div class="banco-widget" id="bancoWidget"></div>
     <!-- KPIs -->
     <div class="kpi-grid" id="fKpis"></div>
+    <div id="avisoLimite" style="margin-bottom:4px"></div>
     <!-- Barra -->
     <div class="sbar" id="saldoBar"></div>
     <!-- Terceiros pendentes deste mês -->
@@ -385,6 +386,7 @@ select option{background:var(--s2)}
     <div class="sec-hdr">
       <div class="sec-t"><span>📋</span> Histórico</div>
       <div style="display:flex;gap:8px">
+        <input id="fhBusca" placeholder="🔍 Buscar..." style="width:150px;padding:6px 10px;font-size:12px" oninput="renderHistorico()">
         <select id="fhMes" style="width:115px;padding:6px 10px;font-size:12px" onchange="renderHistorico()"><option value="">Todos meses</option></select>
         <select id="fhTipo" style="width:120px;padding:6px 10px;font-size:12px" onchange="renderHistorico()">
           <option value="">Todos tipos</option><option value="cartao">Cartão</option>
@@ -430,6 +432,26 @@ select option{background:var(--s2)}
 </div></div>
 
 <!-- MODAIS -->
+<!-- EDITAR -->
+<div class="overlay" id="modal-editar">
+<div class="modal">
+  <button class="mclose" onclick="closeModal('editar')">✕</button>
+  <h3>✏️ Editar Lançamento</h3>
+  <input type="hidden" id="ed-id">
+  <input type="hidden" id="ed-tipo">
+  <div class="fg">
+    <div class="field s2"><label>Descrição</label><input id="ed-desc"></div>
+    <div class="field"><label>Valor (R$)</label><input type="number" id="ed-valor" step="0.01"></div>
+    <div class="field"><label>Mês</label><select id="ed-mes"><option value="">—</option></select></div>
+    <div class="field"><label>Categoria</label><select id="ed-cat"><option value="">—</option></select></div>
+    <div class="field s2"><label>Data</label><input type="date" id="ed-data"></div>
+  </div>
+  <div class="ff">
+    <button class="btn btn-ghost" onclick="closeModal('editar')">Cancelar</button>
+    <button class="btn btn-blue" onclick="salvarEdicao()">Salvar</button>
+  </div>
+</div></div>
+
 <!-- SALDO INICIAL -->
 <div class="overlay" id="modal-saldo">
 <div class="modal">
@@ -793,8 +815,6 @@ select option{background:var(--s2)}
 <div class="toast" id="toast"></div>
 
 <script>
-function today(){return new Date().toISOString().slice(0,10);}
-
 // ══════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════
@@ -837,6 +857,7 @@ initDB();
 const fmt=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtS=v=>{v=Number(v||0);return v>=1000?'R$'+(v/1000).toFixed(1)+'k':'R$'+v.toFixed(0)};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+const today=()=>new Date().toISOString().slice(0,10);
 const getMes=()=>MESES[mesIdx];
 
 function toast(msg,t='ok'){
@@ -1212,12 +1233,13 @@ function confirmarReembolso(){
 function renderHistorico(){
   const fM=document.getElementById('fhMes')?.value||'';
   const fT=document.getElementById('fhTipo')?.value||'';
+  const fB=(document.getElementById('fhBusca')?.value||'').toLowerCase();
   fillSel('fhMes',MESES,true);if(fM)document.getElementById('fhMes').value=fM;
   const rows=[
     ...DB.cartao.map(r=>({...r,_t:'cartao'})),
     ...DB.pix.map(r=>({...r,_t:'pix'})),
     ...DB.entrada.map(r=>({...r,_t:'entrada'}))
-  ].filter(r=>(!fM||r.mes===fM)&&(!fT||r._t===fT))
+  ].filter(r=>{if(fM&&r.mes!==fM)return false;if(fT&&r._t!==fT)return false;if(fB&&!(r.descricao||'').toLowerCase().includes(fB)&&!(r.cartao||'').toLowerCase().includes(fB))return false;return true;})
    .sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
 
   document.getElementById('tHist').innerHTML=rows.length?rows.map(r=>{
@@ -1231,7 +1253,11 @@ function renderHistorico(){
       <td><span class="tag tm">${det}</span></td>
       <td class="money ${r._t==='entrada'?'ng':'nr'}">${fmt(val)}</td>
       <td>${r.mes}</td><td style="text-align:center">${pc}</td>
-      <td><button class="btn-icon" onclick="deletar('${r._t}','${r.id}')">🗑️</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn-icon" title="Editar" onclick="abrirEditar('${r._t}','${r.id}')">✏️</button>
+        <button class="btn-icon" title="Duplicar" onclick="duplicar('${r._t}','${r.id}')">📋</button>
+        <button class="btn-icon" title="Apagar" onclick="deletar('${r._t}','${r.id}')">🗑️</button>
+      </td>
     </tr>`;
   }).join(''):'<tr><td colspan="9"><div class="empty"><div class="empty-i">📭</div><p>Sem lançamentos</p></div></td></tr>';
 }
@@ -1240,28 +1266,40 @@ function renderHistorico(){
 // RESUMO
 // ══════════════════════════════════════
 function renderResumo(){
-  document.getElementById('tResumo').innerHTML=MESES.map(mes=>{
-    const cM=DB.cartao.filter(r=>r.mes===mes);
-    const pM=DB.pix.filter(r=>r.mes===mes);
-    const eM=DB.entrada.filter(r=>r.mes===mes);
-    const tC=cM.reduce((a,r)=>a+r.valorParcela,0);
-    const tT=cM.filter(r=>r.tipo==='TERCEIRO').reduce((a,r)=>a+r.valorParcela,0);
-    const tP=pM.reduce((a,r)=>a+r.valor,0);
-    const tE=eM.reduce((a,r)=>a+r.valor,0);
-    const sl=tE-(tC-tT)-tP;
-    if(!tC&&!tP&&!tE)return'';
-    const bC=c=>cM.filter(r=>r.cartao===c).reduce((a,r)=>a+r.valorParcela,0);
-    return`<tr>
-      <td><b style="cursor:pointer;color:var(--blue)" onclick="mesIdx=${MESES.indexOf(mes)};document.getElementById('mesLabel').textContent=getMes();goto('fechamento')">${mes}</b></td>
-      ${CARTOES.map(c=>`<td class="${bC(c)?'nr':''}">${bC(c)?fmtS(bC(c)):'—'}</td>`).join('')}
-      <td class="nr money">${tC?fmt(tC):'—'}</td>
-      <td class="np">${tT?fmt(tT):'—'}</td>
-      <td class="nb money">${tP?fmt(tP):'—'}</td>
-      <td class="ng money">${tE?fmt(tE):'—'}</td>
-      <td class="${sl>=0?'ng':'nr'} money"><b>${fmt(sl)}</b></td>
-    </tr>`;
+  var hoje=new Date();
+  var mAtual=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'][hoje.getMonth()]+'-'+String(hoje.getFullYear()).slice(2);
+  document.getElementById('tResumo').innerHTML=MESES.map(function(mes){
+    var cM=DB.cartao.filter(function(r){return r.mes===mes;});
+    var pM=DB.pix.filter(function(r){return r.mes===mes;});
+    var eM=DB.entrada.filter(function(r){return r.mes===mes;});
+    var eP=(DB.entradasProg||[]).filter(function(r){return r.mes===mes;});
+    var tC=cM.reduce(function(a,r){return a+r.valorParcela;},0);
+    var tT=cM.filter(function(r){return r.tipo==='TERCEIRO';}).reduce(function(a,r){return a+r.valorParcela;},0);
+    var tP=pM.reduce(function(a,r){return a+r.valor;},0);
+    var tE=eM.reduce(function(a,r){return a+r.valor;},0);
+    var tEP=eP.reduce(function(a,r){return a+(r.valor||0);},0);
+    var sl=tE-(tC-tT)-tP;
+    var slLivre=(tE+tEP)-(tC-tT)-tP;
+    if(!tC&&!tP&&!tE&&!tEP)return'';
+    var bC=function(c){return cM.filter(function(r){return r.cartao===c;}).reduce(function(a,r){return a+r.valorParcela;},0);};
+    var isMesAtual=mes===mAtual;
+    var isFuturo=MESES.indexOf(mes)>MESES.indexOf(mAtual);
+    var badge=isMesAtual?'<span style="font-size:9px;background:rgba(61,139,255,.15);color:var(--blue);padding:1px 5px;border-radius:3px">ATUAL</span>':
+              isFuturo?'<span style="font-size:9px;background:rgba(0,201,122,.1);color:var(--green);padding:1px 5px;border-radius:3px">FUTURO</span>':'';
+    return '<tr>'+
+      '<td>'+badge+'</td>'+
+      '<td><b style="cursor:pointer;color:var(--blue)" data-idx="'+MESES.indexOf(mes)+'" data-action="goMes">'+mes+'</b></td>'+
+      CARTOES.map(function(c){return '<td class="'+(bC(c)?'nr':'')+'">'+( bC(c)?fmtS(bC(c)):'—')+'</td>';}).join('')+
+      '<td class="nr money">'+(tC?fmt(tC):'—')+'</td>'+
+      '<td class="nb money">'+(tP?fmt(tP):'—')+'</td>'+
+      '<td class="ng money">'+(tE?fmt(tE):'—')+'</td>'+
+      '<td style="color:var(--teal)">'+(tEP?fmt(tEP):'—')+'</td>'+
+      '<td class="'+(sl>=0?'ng':'nr')+' money">'+(sl>=0?'▲ ':'▼ ')+fmt(sl)+'</td>'+
+      '<td class="'+(slLivre>=0?'ng':'nr')+' money"><b>'+fmt(slLivre)+'</b></td>'+
+    '</tr>';
   }).join('');
 }
+
 
 // ══════════════════════════════════════
 // CATEGORIAS
@@ -1766,83 +1804,6 @@ if('Notification' in window && Notification.permission==='default'){
 setTimeout(checkVencimentos, 1000);
 // Checar a cada hora
 setInterval(checkVencimentos, 3600000);
-
-// ══════════════════════════════════════
-// FIREBASE — sync em tempo real
-// ══════════════════════════════════════
-var FB_PATH='https://gestao-financeira-2a7a1-default-rtdb.firebaseio.com/dados.json';
-var fbPushTimer=null;
-
-function setSyncStatus(state,msg){
-  var dot=document.getElementById('syncDot');
-  var txt=document.getElementById('syncTxt');
-  if(!dot||!txt)return;
-  txt.textContent=msg;
-  var colors={ok:'var(--green)',err:'var(--red)',sync:'var(--yellow)',idle:'var(--muted)'};
-  dot.style.background=colors[state]||colors.idle;
-  dot.style.animation=state==='sync'?'pulse 1s infinite':'none';
-}
-
-async function fbPush(){
-  try{
-    setSyncStatus('sync','Salvando...');
-    var res=await fetch(FB_PATH,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)});
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    setSyncStatus('ok','Salvo ✓');
-  }catch(e){setSyncStatus('err','Erro ao salvar');console.error('fbPush:',e);}
-}
-
-async function fbLoad(){
-  try{
-    setSyncStatus('sync','Carregando...');
-    var res=await fetch(FB_PATH);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    var data=await res.json();
-    if(data&&typeof data==='object'&&(data.cartao||data.pix||data.entrada)){
-      DB=data;
-      if(!DB.cartao)DB.cartao=[];
-      if(!DB.pix)DB.pix=[];
-      if(!DB.entrada)DB.entrada=[];
-      if(!DB.entradasProg)DB.entradasProg=[];
-      if(!DB.venc)DB.venc={};
-      if(!DB.saldoInicial)DB.saldoInicial={data:today(),valor:0};
-      saveDB();
-      renderPage(getActivePage());
-    }
-    setSyncStatus('ok','Sincronizado ✓');
-  }catch(e){setSyncStatus('err','Offline');console.warn('fbLoad:',e);}
-}
-
-// Auto-save no Firebase após cada alteração
-var _origSaveDB=saveDB;
-saveDB=function(){
-  _origSaveDB();
-  clearTimeout(fbPushTimer);
-  fbPushTimer=setTimeout(fbPush,1500);
-};
-
-// Polling a cada 5s para sincronizar entre dispositivos
-setInterval(async function(){
-  try{
-    var res=await fetch(FB_PATH);
-    if(!res.ok)return;
-    var data=await res.json();
-    if(!data||typeof data!=='object')return;
-    if(JSON.stringify(data)!==JSON.stringify(DB)){
-      DB=data;
-      if(!DB.cartao)DB.cartao=[];
-      if(!DB.pix)DB.pix=[];
-      if(!DB.entrada)DB.entrada=[];
-      if(!DB.entradasProg)DB.entradasProg=[];
-      _origSaveDB();
-      setSyncStatus('ok','Atualizado ✓');
-      renderPage(getActivePage());
-    }
-  }catch(e){}
-},5000);
-
-// Carregar ao abrir
-fbLoad();
 </script>
 </body>
 </html>
