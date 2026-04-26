@@ -400,8 +400,8 @@ select option{background:var(--s2)}
   <!-- RESUMO -->
   <div class="content fade" id="page-resumo">
     <div class="sec-hdr"><div class="sec-t"><span>📊</span> Resumo Mensal</div></div>
-    <div class="tw"><table><thead><tr>
-      <th>Mês</th><th>NUBANK</th><th>ITAU</th><th>INTER</th><th>C6BANK</th><th>MERC PAG</th><th>AMAZON</th><th>NET MOV</th><th>SEGURO</th><th>OUTROS</th><th>CARTÕES</th><th>TERC.</th><th>PIX</th><th>ENTRADAS</th><th>SALDO</th>
+    <div class="tw" style="overflow-x:auto"><table><thead><tr>
+      <th>Mês</th><th>NUBANK</th><th>ITAU</th><th>INTER</th><th>C6BANK</th><th>MERC PAG</th><th>AMAZON</th><th>NET MOV</th><th>SEGURO</th><th>OUTROS</th><th>CARTÕES</th><th>TERC.</th><th>PIX/DÉB</th><th>ENTRADAS</th><th>ENT.PROG.</th><th>SALDO</th>
     </tr></thead><tbody id="tResumo"></tbody></table></div>
   </div>
 
@@ -1244,20 +1244,23 @@ function renderResumo(){
     const cM=DB.cartao.filter(r=>r.mes===mes);
     const pM=DB.pix.filter(r=>r.mes===mes);
     const eM=DB.entrada.filter(r=>r.mes===mes);
+    const eP=(DB.entradasProg||[]).filter(r=>r.mes===mes);
     const tC=cM.reduce((a,r)=>a+r.valorParcela,0);
     const tT=cM.filter(r=>r.tipo==='TERCEIRO').reduce((a,r)=>a+r.valorParcela,0);
     const tP=pM.reduce((a,r)=>a+r.valor,0);
     const tE=eM.reduce((a,r)=>a+r.valor,0);
+    const tEP=eP.reduce((a,r)=>a+(r.valor||0),0);
     const sl=tE-(tC-tT)-tP;
-    if(!tC&&!tP&&!tE)return'';
+    if(!tC&&!tP&&!tE&&!tEP)return'';
     const bC=c=>cM.filter(r=>r.cartao===c).reduce((a,r)=>a+r.valorParcela,0);
     return`<tr>
       <td><b style="cursor:pointer;color:var(--blue)" onclick="mesIdx=${MESES.indexOf(mes)};document.getElementById('mesLabel').textContent=getMes();goto('fechamento')">${mes}</b></td>
-      ${CARTOES.map(c=>`<td class="${bC(c)?'nr':''}">${bC(c)?fmtS(bC(c)):'—'}</td>`).join('')}
+      ${CARTOES.map(c=>`<td class="${bC(c)?'nr':''}">${bC(c)?fmt(bC(c)):'—'}</td>`).join('')}
       <td class="nr money">${tC?fmt(tC):'—'}</td>
       <td class="np">${tT?fmt(tT):'—'}</td>
       <td class="nb money">${tP?fmt(tP):'—'}</td>
       <td class="ng money">${tE?fmt(tE):'—'}</td>
+      <td style="color:var(--teal)">${tEP?fmt(tEP):'—'}</td>
       <td class="${sl>=0?'ng':'nr'} money"><b>${fmt(sl)}</b></td>
     </tr>`;
   }).join('');
