@@ -2248,6 +2248,7 @@ function gerarPDF(){
 // ══════════════════════════════════════
 var FB_PATH='https://gestao-financeira-2a7a1-default-rtdb.firebaseio.com/dados.json';
 var fbPushTimer=null;
+var lastLocalEdit=0; // marca o instante da última edição local (correção da projeção)
 
 function setSyncStatus(state,msg){
   var dot=document.getElementById('syncDot');
@@ -2292,6 +2293,7 @@ async function fbLoad(){
 // Auto-save no Firebase após cada alteração
 var _origSaveDB=saveDB;
 saveDB=function(){
+  lastLocalEdit=Date.now();        // registra que houve edição local agora
   _origSaveDB();
   clearTimeout(fbPushTimer);
   fbPushTimer=setTimeout(fbPush,1500);
@@ -2300,6 +2302,11 @@ saveDB=function(){
 // Polling a cada 5s para sincronizar entre dispositivos
 setInterval(async function(){
   try{
+    // 1) Não sincronizar enquanto o usuário está digitando num campo
+    var ae=document.activeElement;
+    if(ae&&(ae.tagName==='INPUT'||ae.tagName==='SELECT'||ae.tagName==='TEXTAREA'))return;
+    // 2) Não deixar o remoto sobrescrever logo após uma edição local
+    if(Date.now()-lastLocalEdit<4000)return;
     var res=await fetch(FB_PATH);
     if(!res.ok)return;
     var data=await res.json();
